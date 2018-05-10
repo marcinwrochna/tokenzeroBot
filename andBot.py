@@ -15,7 +15,7 @@ import pywikibot.data.api
 
 
 # Some basic config
-scrapeLimit = 10000  # Max number of pages to scrape.
+scrapeLimit = 50000  # Max number of pages to scrape.
 totalEditLimit = 1  # Max number of edits to make (in one run of the script).
 onlySimulateEdits = True  # If true, only print what we would do, don't edit.
 
@@ -28,15 +28,28 @@ def main():
     site = pywikibot.Site('en')
 
     totalEditCount = 0
+    foreign = set()
+    cat = pywikibot.Category(site, 'Category:Academic journals by language')
+    for page in cat.articles(recurse=True, namespaces=0, total=scrapeLimit, content=False):
+         foreign.add(page.title())
+    cat = pywikibot.Category(site, 'Category:English-language journals')
+    for page in cat.articles(recurse=False, namespaces=0, total=scrapeLimit, content=False):
+         foreign.discard(page.title())
+    cat = pywikibot.Category(site, 'Category:Multilingual journals')
+    for page in cat.articles(recurse=False, namespaces=0, total=scrapeLimit, content=False):
+        foreign.add(page.title())
+
+    for t in foreign:
+        if ' & ' in t:
+            print('Skipped foreign title: ' + t)
     for page in getPagesWithInfoboxJournals(scrapeLimit):
-        editCount = makeAmpersandRedirects(page.title())
-        totalEditCount = totalEditCount + editCount
-        if totalEditCount >= totalEditLimit:
-            break
-    # Alternatively we could iterate through some category:
-    #   cat = pywikibot.Category(site, 'Category:Name of category')
-    #   for page in cat.articles(
-    #       recurse=True, namespaces=0, total=scrapeLimit, content=False)
+        if page.title() not in foreign:
+    #cat = pywikibot.Category(site, 'Category:French-language journals')
+    #for page in cat.articles(recurse=False, namespaces=0, total=scrapeLimit, content=False):
+            editCount = makeAmpersandRedirects(page.title())
+            totalEditCount = totalEditCount + editCount
+            if totalEditCount >= totalEditLimit:
+                break
 
 
 def makeAmpersandRedirects(pageTitle):
