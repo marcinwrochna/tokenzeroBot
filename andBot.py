@@ -6,26 +6,23 @@ A bot for Wikipedia, creating redirects between 'and'/'&' variants.
 from __future__ import unicode_literals
 import logging
 from itertools import chain
-#import re
-#import sys
-#from unicodedata import normalize
 
-import pycld2 # Compact Language Detection
+import pycld2  # Compact Language Detection
 
 import pywikibot
 import pywikibot.data.api
-#import mwparserfromhell
-
 
 # Some basic config
 scrapeLimit = 50000  # Max number of pages to scrape.
-totalEditLimit = 9  # Max number of edits to make (in one run of the script).
+totalEditLimit = 15  # Max number of edits to make (in one run of the script).
 onlySimulateEdits = False  # If true, only print what we would do, don't edit.
 
-site = None # pywikibot's main object.
+site = None  # pywikibot's main object.
+
 
 def main():
-    global site
+    """The main function."""
+    global site  # pylint: disable=global-statement
     logging.basicConfig(level=logging.WARNING)
     # Initialize pywikibot.
     site = pywikibot.Site('en')
@@ -54,7 +51,7 @@ def main():
 
 
 def makeAmpersandRedirects(
-        pageTitle, foreign, andToAmpersand=False, ampersandToAnd=True):
+        pageTitle, foreign, andToAmpersand=True, ampersandToAnd=True):
     """ If pageTitle contains 'and' or '&', create a redirect from '&' or 'and',
     respectively (unless the latter page already exists).
 
@@ -86,15 +83,15 @@ def makeAmpersandRedirects(
         print('Skipping (already exists): ', rTitle)
         return 0
     # Create the redirect.
-    print('Creating redirect from [['+ rTitle + ']] to [['+ pageTitle +']].')
+    print('Creating redirect from [[' + rTitle + ']] to [[' + pageTitle + ']]')
     rNewContent = '#REDIRECT [[' + pageTitle + ']]\n'
     rNewContent += '{{R from modification}}\n'
     if not onlySimulateEdits:
         rPage.text = rNewContent
         rPage.save(
             u'Redirect between ampersand/and variant. '
-            + u'Report bugs and suggestions '
-            + u' to [[User talk:TokenzeroBot]]',
+            u'Report bugs and suggestions '
+            u' to [[User talk:TokenzeroBot]]',
             minor=False,
             botflag=True,
             watch="nochange",
@@ -139,10 +136,10 @@ def getPagesWithTemplate(name, content=False):
     ns = site.namespaces['Template']
     template = pywikibot.Page(site, name, ns=ns)
     return template.embeddedin(
-        filter_redirects=False, # Omit redirects
-        namespaces=0,           # Mainspace only
-        total=scrapeLimit,      # Limit total number of pages outputed
-        content=content)        # Whether to immediately fetch content
+        filter_redirects=False,  # Omit redirects
+        namespaces=0,            # Mainspace only
+        total=scrapeLimit,       # Limit total number of pages outputed
+        content=content)         # Whether to immediately fetch content
 
 
 if __name__ == "__main__":
