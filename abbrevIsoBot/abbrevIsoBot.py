@@ -209,7 +209,7 @@ def fixPageRedirects(page: pywikibot.Page,
     title = page.title()
     pageData = state.getPageData(title)
     rNewContent = '#REDIRECT [[' + title + ']]\n{{R from ISO 4}}'
-    requiredRedirects, skip = getRequiredRedirects(page)
+    (requiredRedirects, skip) = getRequiredRedirects(page)
     nEditedPages = 0
     for (rTitle, (rNewContent, iTitle)) in requiredRedirects.items():
         # Attempt to create new redirect.
