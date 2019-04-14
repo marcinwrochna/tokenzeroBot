@@ -1,0 +1,3 @@
+target = List of Dove Medical Press academic journals
+category = Dove Medical Press academic journals
+---I accidentaly deleted the original list---

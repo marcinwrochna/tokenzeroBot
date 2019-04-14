@@ -1,5 +1,6 @@
 target = List of Medknow Publications academic journals
 category = Medknow Publications academic journals 
+publisher = Medknow Publications
 ---
 APOS Trends in Orthodontics
 AYU (journal)

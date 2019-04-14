@@ -40,3 +40,9 @@ def isSoftMatch(infoboxAbbrev: str, computedAbbrev: str) -> bool:
     if infoboxAbbrev == computedAbbrev:
         return True
     return False
+
+
+def stripTitle(t: str) -> str:
+    """Remove disambuig comments from wiki title (before computing abbrev)."""
+    t = re.sub(r'\s*\(.*(ournal|agazine|eriodical|eview)s?\)', '', t)
+    return t

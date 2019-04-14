@@ -1,8 +1,9 @@
-# -*- coding: utf-8 -*-
 """A module for the state, shared between runs and with abbrevIsoBot.js."""
 
 import json
-from typing import Any, Dict
+from typing import Any, Dict, Optional
+
+from abbrevIsoBot.abbrevUtils import stripTitle
 
 # `state` is a global variable maintained between runs.
 # state = {
@@ -73,13 +74,14 @@ class NotComputedYetError(LookupError):
     def __init__(self, title: str) -> None:
         super().__init__(title)
         self.message = ('No computed abbreviation stored for "' + title + '", '
-                        'please rerun abbrevIsoBot.js .')
+                        'please rerun exampleScript.js .')
 
 
 def hasAbbrev(title: str) -> bool:
     """Return whetever the abbrev for given title is saved and computed."""
-    return (title in __state['abbrevs'] and
-            __state['abbrevs'][title] is not False)
+    if title not in __state['abbrevs']:
+        return False
+    return bool(__state['abbrevs'][title])
 
 
 def getAbbrev(title: str, language: str) -> str:
@@ -90,6 +92,17 @@ def getAbbrev(title: str, language: str) -> str:
     if title not in __state['abbrevs'] or not __state['abbrevs'][title]:
         raise NotComputedYetError(title)
     return __state['abbrevs'][title][language]
+
+
+def tryGetAbbrev(title: str, language: str) -> Optional[str]:
+    """Return abbreviation if computed, otherwise store for later computing."""
+    result = None
+    try:
+        result = getAbbrev(title, language)
+    except NotComputedYetError as err:
+        print(err.message)
+        saveTitleToAbbrev(stripTitle(title))
+    return result
 
 
 def getAllAbbrevs(title: str) -> Dict[str, str]:

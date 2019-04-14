@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Reports on potentially problematic articles or redirects.
 
 Mismatch means the abbrv written in the infobox exists, but is not a soft match
@@ -10,8 +9,7 @@ from unicodedata import normalize
 
 import pywikibot
 
-import state
-import utils
+from abbrevIsoBot import state, abbrevUtils
 
 
 # Each list contains tuples: [page title, infobox title, infobox abbrev, ..?].
@@ -220,14 +218,15 @@ def getOverallStats() -> str:
             else:
                 iabbrev = infobox['abbreviation']
                 try:
-                    cabbrev = state.getAbbrev(name, utils.getLanguage(infobox))
+                    cLang = abbrevUtils.getLanguage(infobox)
+                    cabbrev = state.getAbbrev(name, cLang)
                 except state.NotComputedYetError:
                     nIJsWithMissingAbbrev += 1
                     continue
                 cabbrev = normalize('NFC', cabbrev).strip()
                 if iabbrev == cabbrev:
                     nIJsWithExactMatch += 1
-                elif utils.isSoftMatch(iabbrev, cabbrev):
+                elif abbrevUtils.isSoftMatch(iabbrev, cabbrev):
                     nIJsWithCompatMatch += 1
                 else:
                     nIJsWithMismatch += 1
@@ -310,7 +309,7 @@ def getLongMismatchReport() -> str:
                  f"|| {infotitle} "
                  f"|| {{{{-r|{wikiEscape(iabbrev)}}}}} "
                  f"|| {{{{-r|{wikiEscape(cabbrev)}}}}} "
-                 f"|| {{{(clang or '??')} "
+                 f"|| {(clang or '??')} "
                  f"|| <pre style='white-space: pre'>"
                  f"{matchingPatterns}</pre>\n")
             if not hasISO4Redirect:

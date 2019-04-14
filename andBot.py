@@ -20,7 +20,7 @@ def main() -> None:
     # Initialize pywikibot.
     assert Site().code == 'en'
     utils.initLimits(
-        editLimits={'default': 3000},
+        editsLimits={'default': 3000},
         brfaNumber=6,
         onlySimulateEdits=True,
         botTrial=False
