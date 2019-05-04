@@ -36,7 +36,10 @@ __report = {
     # Mismatch where changing the language would give a match.
     # Also in tuple: computed abbrev, other lang computed abbrev,
     #   infobox language, country, deduced language, matchingPatterns.
-    'mismatchLang': []
+    'mismatchLang': [],
+    # Abbrevs not matching database (NLM/MathSciNet) abbrev or missin.
+    # Also in tuple: nlm/mathscinet param, db abbrev, db issn, db.
+    'badDbAbbrev': []
 }  # type: Dict[str, List[Any]]
 
 
@@ -57,6 +60,14 @@ def doReport(site: pywikibot.Site, printOnly: bool = False) -> None:
     oReport += getExistingRedirectReport()
     oReport += getExistingPageReport()
     oReport += getSuperfluousRedirectReport()
+
+    dbReport = getBadDBAbbrevReport()
+
+    if not printOnly:
+        page = pywikibot.Page(site, u"User:TokenzeroBot/abbrev params")
+        page.text = dbReport
+        page.save(u'New report.', minor=False)
+    print(dbReport)
 
     if not printOnly:
         page = pywikibot.Page(site, u"User:TokenzeroBot/ISO 4 unusual")
@@ -182,12 +193,24 @@ def reportLanguageMismatch(pageTitle: str,
                                      hasISO4Redirect])
 
 
+def reportBadDBAbbrev(pageTitle: str,
+                      infoboxTitle: str,
+                      infoboxAbbrev: str,
+                      paramAbbrev: str,
+                      dbAbbrev: str,
+                      issn: str,
+                      whichDb: str) -> None:
+    """Report abbrev missing or mismatching w.r.t. NLM/PubMed or MathSciNet."""
+    __report['badDbAbbrev'].append([pageTitle, infoboxTitle, infoboxAbbrev,
+                                    paramAbbrev, dbAbbrev, issn, whichDb])
+
+
 def wikiEscape(s: str) -> str:
     """Escape wikitext (into wikitext that will show the raw code)."""
     return s.replace('<', '&lt;').replace('>', '&gt;') \
             .replace('{{', '{<nowiki />{').replace('}}', '}<nowiki />}') \
             .replace('[[', '[<nowiki />[').replace(']]', ']<nowiki />]') \
-            .replace('|', '{{!}}')
+            .replace('|', '<nowiki>{{!}}</nowiki>')
 
 
 def linkNoRedir(s: str) -> str:
@@ -516,4 +539,38 @@ def getSuperfluousRedirectReport() -> str:
         "For ''PLoS'' vs ''PLOS'' I'd say both are valid.\n"
         "Existing redirects show titles that would abbreviate "
         "to the questioned one.\n"
+        + str(table))
+
+
+def getBadDBAbbrevReport() -> str:
+    """Get sub-report on bad abbrevs comparing to NLM or MathSciNet."""
+    table = WikiTable("page title",
+                      "infobox title",
+                      "(ISO 4) abbreviation=",
+                      "nlm=/mathscinet=",
+                      "should be",
+                      "issn",
+                      "type")
+    for wikititle, infoboxTitle, infoboxAbbrev, paramAbbrev,\
+            dbAbbrev, issn, whichDb \
+            in sorted(__report['badDbAbbrev'], key=lambda x: (x[6], x)):
+        table.appendRow(f"[[{wikititle}]]",
+                        wikiEscape(infoboxTitle),
+                        wikiEscape(infoboxAbbrev),
+                        wikiEscape(paramAbbrev),
+                        wikiEscape(dbAbbrev),
+                        issn,
+                        whichDb)
+    return (
+        "What the abbreviations should be according to bot's parse of"
+        " NLM/MathSciNet data files. Parameters differing only in diacritics"
+        " or non-alphabetic characters are not listed.\n\n"
+        "NLM abbrevs are from [https://www.ncbi.nlm.nih.gov/books/NBK3827"
+        "/table/pubmedhelp.T.journal_lists/ here]"
+        " (the combined NLM/Pubmed and NCBI file: ''J_Entrez'')\n\n"
+        "MathSciNet is from [https://mathscinet.ams.org/msnhtml/serials.pdf"
+        " here] or [https://mathscinet.ams.org/mathscinet/search/newjCSV.html"
+        " here]; the parsing process for MathSciNet is not perfect, so please"
+        " double-check (search [https://mathscinet.ams.org/mathscinet"
+        "/searchjournals.html here] if you have access).\n"
         + str(table))

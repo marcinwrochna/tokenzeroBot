@@ -9,6 +9,7 @@ import sys
 from collections import defaultdict
 from typing import Any, DefaultDict, Dict, Tuple
 from enum import Flag, auto
+from unidecode import unidecode
 
 import Levenshtein
 import pywikibot
@@ -16,11 +17,13 @@ import pywikibot.data.api
 from pywikibot import Site
 
 from abbrevIsoBot import reports, state, fill, abbrevUtils, databases
-from utils import initLimits, trySaving, \
+from utils import initLimits, trySaving, tryPurging, \
     getRedirectsToPage, getPagesWithTemplate, getInfoboxJournals
 
 
 STATE_FILE_NAME = 'abbrevIsoBot/abbrevBotState.json'
+# Dicts from issn to abbrev in NLM/PubMed or MathSciNet database.
+issnToAbbrev: Dict[str, Dict[str, str]] = {'nlm': {}, 'mathscinet': {}}
 
 
 def main() -> None:
@@ -62,9 +65,6 @@ def printHelp() -> None:
 def doTest() -> None:
     """Test a bot edit (in userspace sandbox), e.g. to check flags."""
     # print(state.dump())
-    databases.parseNLMDict('databaseNLM.txt')
-    databases.parseMSNDict('databaseMathSciNet.csv')
-    return
     page = pywikibot.Page(Site(), 'User:TokenzeroBot/sandbox')
     page.text = 'Testing bot.'
     page.save(
@@ -82,6 +82,10 @@ def doScrape(fixPages: bool = False, writeReport: bool = False) -> None:
         fixPages: Whether to actually fix any pages, or only scrape.
         writePages: Whether to write the reports.
     """
+    issnToAbbrev['nlm'] = databases.parseNLMDict()
+    issnToAbbrev['mathscinet'] = databases.parseMSNDict()
+    print(f'Loaded databases nlm={len(issnToAbbrev["nlm"])}'
+          f' msn={len(issnToAbbrev["mathscinet"])}')
     articles = getPagesWithTemplate('Infobox journal', content=True)
     # articles = [pywikibot.Page(Site(), 'Annals of Mathematics')]
     # Yields ~7500 pages.
@@ -106,6 +110,7 @@ def scrapePage(page: pywikibot.Page) -> None:
         pageData['infoboxes'].append(infobox)
         if 'title' in infobox and infobox['title'] != '':
             state.saveTitleToAbbrev(infobox['title'])
+        checkDBAbbrevs(page.title(), infobox)
     # Iterate over pages that are redirects to `page`.
     for r in getRedirectsToPage(page.title(), namespaces=0,
                                 total=100, content=True):
@@ -115,6 +120,39 @@ def scrapePage(page: pywikibot.Page) -> None:
     state.savePageData(page.title(), pageData)
     state.saveTitleToAbbrev(abbrevUtils.stripTitle(page.title()))
     print('', flush=True)
+
+
+def checkDBAbbrevs(pageTitle: str, infobox: Dict[str, str]) -> bool:
+    """Check abbreviation from NLM/PubMed and MathSciNet databases."""
+    issns = []
+    if infobox.get('issn'):
+        issns.append(infobox['issn'])
+    if infobox.get('eissn'):
+        issns.append(infobox['eissn'])
+    for t in ['nlm', 'mathscinet']:
+        for issn in issns:
+            issn = issn.replace('–', '-')
+            if issn in issnToAbbrev[t]:
+                shouldHave = issnToAbbrev[t][issn]
+                if infobox.get(t):
+                    if infobox[t] != shouldHave:
+                        reports.reportBadDBAbbrev(
+                            pageTitle, infobox.get('title', ''),
+                            infobox.get('abbreviation', ''),
+                            infobox[t], shouldHave, issn, t)
+                    return False
+                else:
+                    iso = infobox.get('abbreviation', '')
+                    regexToCut = r'[^A-Za-z0-9]'  # r'[ .:()\-]'
+                    isoCut = re.sub(regexToCut, '', unidecode(iso))
+                    shouldCut = re.sub(regexToCut, '', unidecode(shouldHave))
+                    if isoCut != shouldCut:
+                        reports.reportBadDBAbbrev(
+                            pageTitle, infobox.get('title', ''),
+                            infobox.get('abbreviation', ''),
+                            '', shouldHave, issn, t)
+                        return False
+    return True
 
 
 def fixPageRedirects(page: pywikibot.Page) -> int:
@@ -130,7 +168,10 @@ def fixPageRedirects(page: pywikibot.Page) -> int:
             if pywikibot.Page(Site(), rTitle).exists():
                 print(f'--Skipping existing page [[{rTitle}]] '
                       f'(not a redirect to [[{title}]]).')
-                reports.reportExistingOtherPage(title, rTitle)
+                if title == rTitle:
+                    continue
+                if title not in pywikibot.Page(Site(), rTitle).text:
+                    reports.reportExistingOtherPage(title, rTitle)
             else:
                 print(f'--Creating redirect '
                       f'from [[{rTitle}]] to [[{title}]]. '
@@ -166,7 +207,7 @@ def fixPageRedirects(page: pywikibot.Page) -> int:
                 reports.reportExistingOtherRedirect(title, rTitle, rOldContent)
     # Purge page cache to remove warnings about missing redirects.
     if nEditedPages > 0:
-        page.purge()
+        tryPurging(page)
 
     # Report redirects that we wouldn't add, but exist and are marked as ISO-4.
     if requiredRedirects and not skip:
@@ -269,8 +310,6 @@ def getRequiredRedirects(page: pywikibot.Page) \
                 and isValidISO4Redirect(pageData['redirects'][iAbbrev], title,
                                         RCatSet.ISO4, strict=False)\
                 and iAbbrevDotless != iAbbrev:
-            # TODO return? result[iAbbrev] |= RCatSet('ISO4')
-            #              result[iAbbrevDotless] |= RCatSet('ISO4')
             hasISO4Redirect = True
         # If the abbreviation matches the computed one,
         # there should be a dotted and a dotless redirect.
@@ -310,10 +349,25 @@ def getRequiredRedirects(page: pywikibot.Page) \
         nlm = infobox.get('nlm', '')
         if nlm and re.fullmatch(r'[\w\ \.,\(\)\[\]\:\'/\-]+', nlm):
             result[nlm] |= RCatSet.NLM
+        if not nlm:
+            if infobox.get('issn'):
+                nlm = issnToAbbrev['nlm'].get(infobox['issn'])
+            if not nlm and infobox.get('eissn'):
+                nlm = issnToAbbrev['nlm'].get(infobox['eissn'])
+            if nlm and nlm == infobox.get('abbreviation').replace('.', ''):
+                result[nlm] |= RCatSet.NLM
         msn = infobox.get('mathscinet', '')
         if msn and re.fullmatch(r'[\w\ \.\(\)\:\'/\-]+', msn):
             result[msn] |= RCatSet.MSN
             result[msn.replace('.', '')] |= RCatSet.MSN
+        if not msn:
+            if infobox.get('issn'):
+                msn = issnToAbbrev['mathscinet'].get(infobox['issn'])
+            if not nlm and infobox.get('eissn'):
+                msn = issnToAbbrev['mathscinet'].get(infobox['eissn'])
+            if msn and msn == infobox.get('abbreviation'):
+                result[msn] |= RCatSet.MSN
+                result[msn.replace('.', '')] |= RCatSet.MSN
     finalResult: Dict[str, RCatSet] = {}
     for rTitle, rCats in result.items():
         if rCats:
@@ -420,7 +474,8 @@ def isReplaceableRedirect(rContent: str, title: str, rCats: RCatSet) -> bool:
     # Allow removing at most one other abbreviation or spelling rcat.
     # E.g. don't change pages having an {{R from move}}.
     #    rContent = re.sub(r'{{R from[a-zA-Z4\s]*}}', '', rContent, 1)
-    rContent = re.sub(r'{{R from (ISO 4|abb[a-z]*|shortening|initialism'
+    rContent = re.sub(r'{{R from (ISO ?4|ISO 4 abbreviation'
+                      r'|abb[a-z]*|shortening|initialism'
                       r'|short name|alternat[a-z]* spelling'
                       r'|systematic abbreviation|other capitalisation'
                       r'|other spelling)}}',

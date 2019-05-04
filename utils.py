@@ -92,6 +92,13 @@ def trySaving(page: pywikibot.Page,
     return True
 
 
+def tryPurging(page: pywikibot.Page) -> bool:
+    """Purge page cache at Wikipedia, unless _onlySimulateEdits."""
+    if _onlySimulateEdits:
+        return False
+    return page.purge()
+
+
 def getCategoryAsSet(name: str, recurse: bool = True, namespaces: int = 0) \
         -> Set[str]:
     """Get all titles of pages in given category as a set().
