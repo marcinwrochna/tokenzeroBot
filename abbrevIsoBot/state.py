@@ -3,8 +3,6 @@
 import json
 from typing import Any, Dict, Optional
 
-from abbrevIsoBot.abbrevUtils import stripTitle
-
 # `state` is a global variable maintained between runs.
 # state = {
 #     'pages': {
@@ -101,7 +99,7 @@ def tryGetAbbrev(title: str, language: str) -> Optional[str]:
         result = getAbbrev(title, language)
     except NotComputedYetError as err:
         print(err.message)
-        saveTitleToAbbrev(stripTitle(title))
+        saveTitleToAbbrev(title)
     return result
 
 

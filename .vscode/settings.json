@@ -4,6 +4,7 @@
     "python.linting.pylintArgs": ["--enable=F,E,W,C,R", "--disable=invalid-name,no-absolute-import", "-j 0"],
     "python.linting.flake8Enabled": false,
     "python.linting.mypyEnabled": true,
+    "python.linting.mypyPath": "/usr/bin/mypy-module",
     "python.linting.mypyArgs": [
         "--ignore-missing-imports",
         "--follow-imports=silent",

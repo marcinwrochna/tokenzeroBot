@@ -6,14 +6,16 @@ creates and fixes redirects and the `abbreviation` parameter.
 import logging
 import re
 import sys
-from typing import Any, Dict, Tuple
+from collections import defaultdict
+from typing import Any, DefaultDict, Dict, Tuple
+from enum import Flag, auto
 
 import Levenshtein
 import pywikibot
 import pywikibot.data.api
 from pywikibot import Site
 
-from abbrevIsoBot import reports, state, fill, abbrevUtils
+from abbrevIsoBot import reports, state, fill, abbrevUtils, databases
 from utils import initLimits, trySaving, \
     getRedirectsToPage, getPagesWithTemplate, getInfoboxJournals
 
@@ -28,9 +30,9 @@ def main() -> None:
     # Initialize pywikibot.
     assert Site().code == 'en'
     initLimits(
-        editsLimits={'default': 80},
+        editsLimits={'default': 200},
         brfaNumber=2,
-        onlySimulateEdits=False,
+        onlySimulateEdits=True,
         botTrial=False,
         listLimit=None
     )
@@ -42,6 +44,8 @@ def main() -> None:
     elif sys.argv[1] == 'scrape':
         doScrape()
     elif sys.argv[1] == 'fixpages':
+        doScrape(fixPages=True, writeReport=False)
+    elif sys.argv[1] == 'report':
         doScrape(fixPages=True, writeReport=True)
     elif sys.argv[1] == 'fill':
         fill.doFillAbbrevs()
@@ -52,13 +56,16 @@ def main() -> None:
 
 def printHelp() -> None:
     """Print a simple help message on available commands."""
-    print("Use exactly one command of: scrape, fixpages, report, test")
+    print("Use exactly one command of: scrape, fixpages, report, test, fill")
 
 
 def doTest() -> None:
     """Test a bot edit (in userspace sandbox), e.g. to check flags."""
     # print(state.dump())
-    page = pywikibot.Page(Site(), u"User:TokenzeroBot/sandbox")
+    databases.parseNLMDict('databaseNLM.txt')
+    databases.parseMSNDict('databaseMathSciNet.csv')
+    return
+    page = pywikibot.Page(Site(), 'User:TokenzeroBot/sandbox')
     page.text = 'Testing bot.'
     page.save(
         'Testing bot',
@@ -76,6 +83,7 @@ def doScrape(fixPages: bool = False, writeReport: bool = False) -> None:
         writePages: Whether to write the reports.
     """
     articles = getPagesWithTemplate('Infobox journal', content=True)
+    # articles = [pywikibot.Page(Site(), 'Annals of Mathematics')]
     # Yields ~7500 pages.
     # In case you'd want 'Category:Academic journals', you'd probably exclude
     # the subcategory 'Literary magazines' (in 'Humanities journals')
@@ -86,7 +94,7 @@ def doScrape(fixPages: bool = False, writeReport: bool = False) -> None:
         if fixPages:
             fixPageRedirects(page)
     if writeReport:
-        reports.doReport(Site())
+        reports.doReport(Site(), printOnly=False)
 
 
 def scrapePage(page: pywikibot.Page) -> None:
@@ -115,13 +123,14 @@ def fixPageRedirects(page: pywikibot.Page) -> int:
     pageData = state.getPageData(title)
     (requiredRedirects, skip) = getRequiredRedirects(page)
     nEditedPages = 0
-    for rTitle, (rNewContent, iTitle) in requiredRedirects.items():
+    for rTitle, rCats in requiredRedirects.items():
+        rNewContent = rcatSetToRedirectContent(title, rCats)
         # Attempt to create new redirect.
         if rTitle not in pageData['redirects']:
             if pywikibot.Page(Site(), rTitle).exists():
                 print(f'--Skipping existing page [[{rTitle}]] '
                       f'(not a redirect to [[{title}]]).')
-                reports.reportExistingOtherPage(title, iTitle, rTitle)
+                reports.reportExistingOtherPage(title, rTitle)
             else:
                 print(f'--Creating redirect '
                       f'from [[{rTitle}]] to [[{title}]]. '
@@ -130,29 +139,31 @@ def fixPageRedirects(page: pywikibot.Page) -> int:
                 nEditedPages += 1
                 rPage = pywikibot.Page(Site(), rTitle)
                 trySaving(rPage, rNewContent,
-                          'Creating redirect from ISO 4 abbreviation. ',
+                          'Creating redirect from standard abbreviation. ',
                           overwrite=False)
         else:
             rOldContent = pageData['redirects'][rTitle]
-            if isValidISO4Redirect(rOldContent, title):
+            if isValidISO4Redirect(rOldContent, title, rCats):
                 print(f'--Skipping existing valid redirect '
                       f'from [[{rTitle}]] to [[{title}]].')
-            elif isReplaceableRedirect(rOldContent, title, rTitle):
+            elif isReplaceableRedirect(rOldContent, title, rCats):
                 print(f'--Replacing existing redirect '
-                      f'from [[{rTitle}]] to [[{title}]]. '
+                      f'from [[{rTitle}]] to [[{title}]].\n'
+                      f'RCatSet: {rCats}\n'
                       f'Original content:\n{rOldContent}\n----- '
                       f'New content:\n{rNewContent}\n-----',
                       flush=True)
                 nEditedPages += 1
                 rPage = pywikibot.Page(Site(), rTitle)
                 trySaving(rPage, rNewContent,
-                          'Marking as {{R from ISO 4}}. ',
+                          'Marking standard abbrev rcat. ',
                           overwrite=True)
             else:
                 print(f'--Skipping existing dubious redirect '
-                      f'from [[{rTitle}]] to [[{title}]].')
-                reports.reportExistingOtherRedirect(
-                    title, iTitle, rTitle, rOldContent)
+                      f'from [[{rTitle}]] to [[{title}]].\n'
+                      f'RCatSet: {rCats}\n'
+                      f'Original content:\n{rOldContent}\n----- ')
+                reports.reportExistingOtherRedirect(title, rTitle, rOldContent)
     # Purge page cache to remove warnings about missing redirects.
     if nEditedPages > 0:
         page.purge()
@@ -161,14 +172,27 @@ def fixPageRedirects(page: pywikibot.Page) -> int:
     if requiredRedirects and not skip:
         expectedAbbrevs = \
             [r.replace('.', '') for r in requiredRedirects]
+        potentialAbbrevs = []
         for rTitle, rContent in pageData['redirects'].items():
-            if 'from former name' in rContent:
-                cAbbrevEng = state.tryGetAbbrev(rTitle, 'eng')
-                cAbbrevAll = state.tryGetAbbrev(rTitle, 'all')
-                if cAbbrevEng:
-                    expectedAbbrevs.append(cAbbrevEng.replace('.', ''))
-                if cAbbrevAll:
-                    expectedAbbrevs.append(cAbbrevAll.replace('.', ''))
+            if 'from former name' in rContent or '.' not in rTitle:
+                cAbbrevEng = state.tryGetAbbrev(
+                    abbrevUtils.stripTitle(rTitle), 'eng') or ''
+                cAbbrevAll = state.tryGetAbbrev(
+                    abbrevUtils.stripTitle(rTitle), 'all') or ''
+                cAbbrevEng = cAbbrevEng.replace('.', '')
+                cAbbrevAll = cAbbrevAll.replace('.', '')
+                if 'from former name' in rContent:
+                    if cAbbrevEng != rTitle.replace('.', ''):
+                        expectedAbbrevs.append(cAbbrevEng)
+                    if cAbbrevAll != rTitle.replace('.', ''):
+                        expectedAbbrevs.append(cAbbrevAll)
+                elif '.' not in rTitle:
+                    if cAbbrevEng != rTitle.replace('.', ''):
+                        potentialAbbrevs.append((cAbbrevEng, rTitle))
+                    if cAbbrevAll != rTitle.replace('.', ''):
+                        potentialAbbrevs.append((cAbbrevAll, rTitle))
+        expectedAbbrevs = [a for a in expectedAbbrevs if a]
+        potentialAbbrevs = [(a, t) for (a, t) in potentialAbbrevs if a]
         for rTitle, rContent in pageData['redirects'].items():
             if not re.search(r'R from ISO 4', rContent):
                 continue
@@ -181,6 +205,11 @@ def fixPageRedirects(page: pywikibot.Page) -> int:
                     isExpected = True
                     break
             if not isExpected:
+                # Find other titles in existing redirects
+                # that would ISO-4 abbreviate to it
+                potentials = [t for (a, t) in potentialAbbrevs
+                              if abbrevUtils.isSoftMatch(rTitleDotless, a)]
+                potentials = list(sorted(set(potentials)))
                 # Find closest computed abbrev.
                 bestAbbrev = ''
                 bestDist = len(rTitle)
@@ -193,30 +222,34 @@ def fixPageRedirects(page: pywikibot.Page) -> int:
                 # title, since there's a ton of cases like that).
                 if bestDist <= 8:
                     reports.reportSuperfluousRedirect(
-                        title, rTitle, rContent, bestAbbrev)
+                        title, rTitle, rContent, bestAbbrev, potentials)
     return nEditedPages
 
 
+class RCatSet(Flag):
+    """Flag bitmap denoting a set of rcats (redirect-categories)."""
+
+    #                   infobox-journal parameter, rcat templates {{R from _}}
+    ISO4 = auto()     # abbreviation, ISO 4/ISO4/ISO 4 abbreviation
+    NLM = auto()      # nlm, NLM/NLM abbreviation/MEDLINE/MEDLINE abbreviation
+    MSN = auto()      # mathscinet, MathSciNet/MathSciNet abbreviation
+
+
 def getRequiredRedirects(page: pywikibot.Page) \
-        -> Tuple[Dict[str, Tuple[str, str]], bool]:
+        -> Tuple[Dict[str, RCatSet], bool]:
     """Compute ISO-4 redirects to `page` that we believe should exist.
 
-    Returns `[req, skip]`, where:
-        `req[redirectTitle] = [redirectContent, infoboxUnabbreviatedTitle]`,
+    Returns `(req, skip)`, where:
+        `req[redirectTitle] = redirectCategories`,
         `skip` indicates that we had to skip an infobox, so the result is most
         probably not exhaustive (so we won't report extra existing redirects).
     """
     title = page.title()
     pageData = state.getPageData(title)
-    rNewContent = '#REDIRECT [[' + title + ']]\n{{R from ISO 4}}'
-    result = {}
+    result: DefaultDict[str, RCatSet] = defaultdict(lambda: RCatSet(0))
     skip = False
     for infobox in pageData['infoboxes']:
-        iTitle = infobox.get('title', '')
-        if iTitle:
-            name = iTitle
-        else:
-            name = abbrevUtils.stripTitle(title)
+        name = infobox.get('title', abbrevUtils.stripTitle(title))
         iAbbrev = infobox.get('abbreviation', '')
         iAbbrevDotless = iAbbrev.replace('.', '')
         if iAbbrev == '' or iAbbrev == 'no':
@@ -233,10 +266,11 @@ def getRequiredRedirects(page: pywikibot.Page) \
         # there should be one for the dotless version too.
         hasISO4Redirect = False
         if iAbbrev in pageData['redirects'] \
-                and isValidISO4Redirect(pageData['redirects'][iAbbrev], title)\
+                and isValidISO4Redirect(pageData['redirects'][iAbbrev], title,
+                                        RCatSet.ISO4, strict=False)\
                 and iAbbrevDotless != iAbbrev:
-            result[iAbbrev] = (pageData['redirects'][iAbbrev], iTitle)
-            result[iAbbrevDotless] = (rNewContent, iTitle)
+            # TODO return? result[iAbbrev] |= RCatSet('ISO4')
+            #              result[iAbbrevDotless] |= RCatSet('ISO4')
             hasISO4Redirect = True
         # If the abbreviation matches the computed one,
         # there should be a dotted and a dotless redirect.
@@ -269,49 +303,98 @@ def getRequiredRedirects(page: pywikibot.Page) \
             reports.reportTrivialAbbrev(
                 title, infobox.get('title', ''),
                 iAbbrev, pageData['redirects'])
-        elif not hasISO4Redirect:
-            iTitle = infobox.get('title', '')
-            result[iAbbrev] = (rNewContent, iTitle)
-            result[iAbbrevDotless] = (rNewContent, iTitle)
-    return result, skip
+        else:
+            result[iAbbrev] |= RCatSet.ISO4
+            result[iAbbrevDotless] |= RCatSet.ISO4
+    for infobox in pageData['infoboxes']:
+        nlm = infobox.get('nlm', '')
+        if nlm and re.fullmatch(r'[\w\ \.,\(\)\[\]\:\'/\-]+', nlm):
+            result[nlm] |= RCatSet.NLM
+        msn = infobox.get('mathscinet', '')
+        if msn and re.fullmatch(r'[\w\ \.\(\)\:\'/\-]+', msn):
+            result[msn] |= RCatSet.MSN
+            result[msn.replace('.', '')] |= RCatSet.MSN
+    finalResult: Dict[str, RCatSet] = {}
+    for rTitle, rCats in result.items():
+        if rCats:
+            finalResult[rTitle] = rCats
+    return finalResult, skip
 
 
-def isValidISO4Redirect(rContent: str, title: str) -> bool:
+def rcatSetToRedirectContent(target: str, rCats: RCatSet) -> str:
+    """Construct a redirect's contents (target and rcats)."""
+    result = '#REDIRECT [[' + target + ']]'
+    r = []
+    if rCats & RCatSet.ISO4:
+        r.append('{{R from ISO 4}}')
+    if rCats & RCatSet.NLM:
+        r.append('{{R from NLM}}')
+    if rCats & RCatSet.MSN:
+        r.append('{{R from MathSciNet}}')
+    if len(r) == 1:
+        result += '\n' + r[0]
+    elif r:
+        result += '\n\n{{Redirect shell |\n  ' + ('\n  '.join(r)) + '\n}}'
+    return result
+
+
+def isValidISO4Redirect(rContent: str, title: str,
+                        rCats: RCatSet, strict: bool = True) -> bool:
     """Check if given redirect is a simple variation of what we would put.
 
     Args:
         rContent: Wikitext content of the redirect.
         title: Title of the target page.
+        rCats: set of categories we should have.
+        strict: if true, we reject if some other categories are here
     """
     # Ignore special characters variants.
     rContent = rContent.replace('&#38;', '&')
     rContent = rContent.replace('&#39;', '\'')
     rContent = rContent.replace('_', ' ')
     # Ignore double whitespace.
+    rContent = re.sub(r'<br\s*/>', '\n', rContent)
     rContent = re.sub(r'((?<!\w)\s|\s(?![\s\w]))', '', rContent.strip())
     title = re.sub(r'((?<!\w)\s|\s(?![\s\w]))', '', title.strip())
+    rContent = re.sub(r'#REDIRECT\s+\[\[', '#REDIRECT[[', rContent)
     # Ignore capitalization.
     rContent = rContent.replace('redirect', 'REDIRECT')
     rContent = rContent.replace('Redirect', 'REDIRECT')
-    # Ignore expected rcats.
+    # Check rcats, ignore the ones we expect.
+    existingRCats = RCatSet(0)
     rContent = re.sub(r'{{R(EDIRECT)? (un)?printworthy}}', '', rContent)
     rContent = re.sub(r'{{R(EDIRECT)? u?pw?}}', '', rContent)
     rContent = re.sub(r'{{R from move}}', '', rContent)
-    rContent = re.sub(r'{{R from (Bluebook|bluebook|MEDLINE|NLM|MathSciNet)'
-                      r'( abbreviation)?}}', '', rContent)
+    rContent = re.sub(r'{{R to section}}', '', rContent)
+    if re.search(r'{{R from (MEDLINE|NLM)( abbreviation)?}}', rContent):
+        existingRCats |= RCatSet.NLM
+    if re.search(r'{{R from MathSciNet( abbreviation)?}}', rContent):
+        existingRCats |= RCatSet.MSN
+    if re.search(r'{{R from ISO\s?4( abbreviation)?}}', rContent):
+        existingRCats |= RCatSet.ISO4
+    rContent = re.sub(
+        r'{{R from (ISO4|ISO 4|Bluebook|bluebook|MEDLINE|NLM|MathSciNet)'
+        r'( abbreviation)?}}',
+        '',
+        rContent)
+    # Ignore redirects to specific sections.
+    rContent = re.sub(r'#[^\[\]]*(?=\]\])', '', rContent)
     # Ignore variants which include the rcat shell.
-    rContent = rContent.replace('{{REDIRECT category shell',
-                                '{{REDIRECT shell')
-    # Ignore synonims of the rcat.
-    rContent = rContent.replace('{{R from ISO 4 abbreviation',
-                                '{{R from ISO 4')
-    rWithoutShell = '#REDIRECT[[' + title + ']]{{R from ISO 4}}'
-    rWithShell = '#REDIRECT[[' + title + ']]' \
-                 + '{{REDIRECT shell|{{R from ISO 4}}}}'
-    return rContent == rWithoutShell or rContent == rWithShell
+    rContent = re.sub(r'{{REDIRECT (category )?shell\s*\|(1=)?\s*}}',
+                      '', rContent)
+    if rContent != '#REDIRECT[[' + title + ']]':
+        return False
+    if strict:
+        if existingRCats != rCats:
+            return False
+    else:
+        # If some bits set in rCats are not in existingRCats, fail:
+        if rCats & ~existingRCats:  # pylint: disable=E1130 # (a pylint bug)
+            return False
+    return True
 
 
-def isReplaceableRedirect(rContent: str, title: str, _rTitle: str) -> bool:
+def isReplaceableRedirect(rContent: str, title: str, rCats: RCatSet) -> bool:
     """Check if the content of a given redirect can be automatically replaced.
 
     Examples of not replaceable content:
@@ -323,9 +406,11 @@ def isReplaceableRedirect(rContent: str, title: str, _rTitle: str) -> bool:
     rContent = rContent.replace('&#38;', '&')
     rContent = rContent.replace('&#39;', '\'')
     rContent = rContent.replace('_', ' ')
-    # Normalize whitespace.
+    # Ignore double whitespace.
+    rContent = re.sub(r'<br\s*/>', '\n', rContent)
     rContent = re.sub(r'((?<!\w)\s|\s(?![\s\w]))', '', rContent.strip())
     title = re.sub(r'((?<!\w)\s|\s(?![\s\w]))', '', title.strip())
+    rContent = re.sub(r'#REDIRECT\s+\[\[', '#REDIRECT[[', rContent)
     # Normalize capitalization.
     rContent = rContent.replace('redirect', 'REDIRECT')
     rContent = rContent.replace('Redirect', 'REDIRECT')

@@ -39,7 +39,7 @@ def main() -> None:
     # Initialize pywikibot.
     assert Site().code == 'en'
     initLimits(
-        editsLimits={'create': 3000, 'talk': 3000, 'fix': 3000, 'hatnote': 0},
+        editsLimits={'create': 300, 'talk': 300, 'fix': 300, 'hatnote': 0},
         brfaNumber=6,
         onlySimulateEdits=True,
         botTrial=False

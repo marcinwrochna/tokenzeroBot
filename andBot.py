@@ -22,7 +22,7 @@ def main() -> None:
     utils.initLimits(
         editsLimits={'default': 3000},
         brfaNumber=6,
-        onlySimulateEdits=True,
+        onlySimulateEdits=False,
         botTrial=False
     )
 

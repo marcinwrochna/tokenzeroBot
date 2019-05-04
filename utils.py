@@ -73,8 +73,6 @@ def trySaving(page: pywikibot.Page,
     global _editsDone  # pylint: disable=global-statement
     if limitType not in _editsLimits or limitType not in _editsDone:
         raise Exception(f'Undefined limit type: "{limitType}"')
-    print(f'limits[{limitType}] = '
-          f'{_editsDone[limitType]}/{_editsLimits[limitType]}')
     if _editsDone[limitType] >= _editsLimits[limitType]:
         return False
     _editsDone[limitType] += 1
