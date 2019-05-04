@@ -3,3 +3,6 @@ __pycache__/
 .vscode/tags
 logs/
 abbrevBotState.json
+.cronState.json
+.cronjob.lock
+.vscode/launch.json
