@@ -1,0 +1,17 @@
+target = National Institute of Science Communication and Information Resources
+category = National Institute of Science Communication and Information Resources academic journals
+---
+Bharatiya Vaigyanik evam Audyogik Anusandhan Patrika
+Indian Journal of Biochemistry and Biophysics
+Indian Journal of Biotechnology
+Indian Journal of Chemistry, Section A
+Indian Journal of Chemistry, Section B
+Indian Journal of Chemical Technology
+Indian Journal of Experimental Biology
+Indian Journal of Engineering and Materials Sciences
+Indian Journal of Fibre & Textile Research
+Indian Journal of Natural Products and Resources
+Indian Journal of Pure & Applied Physics
+Indian Journal of Radio & Space Physics
+Indian Journal of Traditional Knowledge
+Journal of Scientific and Industrial Research
