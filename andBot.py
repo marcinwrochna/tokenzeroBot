@@ -3,7 +3,8 @@
 from __future__ import absolute_import
 import logging
 from itertools import chain
-from typing import Set
+from typing import Optional, Set
+import re
 
 import pycld2  # Compact Language Detection
 import pywikibot
@@ -11,7 +12,8 @@ import pywikibot.data.api
 from pywikibot import Site
 
 import utils
-from utils import getCategoryAsSet, getPagesWithTemplate, trySaving
+from utils import getCategoryAsSet, getPagesWithTemplate, getRedirectsToPage, \
+    trySaving
 
 
 def main() -> None:
@@ -20,11 +22,13 @@ def main() -> None:
     # Initialize pywikibot.
     assert Site().code == 'en'
     utils.initLimits(
-        editsLimits={'default': 3000},
+        editsLimits={'default': 4000},
         brfaNumber=6,
         onlySimulateEdits=False,
         botTrial=False
     )
+
+    EnglishWordList.init()
 
     # Let 'foreign' be the set of page titles in a language-category
     # other than English, or in the multilingual category.
@@ -41,17 +45,29 @@ def main() -> None:
             getPagesWithTemplate('Infobox Journal'),
             getPagesWithTemplate('Infobox magazine'),
             getPagesWithTemplate('Infobox Magazine')):
-        makeAmpersandRedirects(page.title(), foreign)
+        pageTitle = page.title()
+        try:
+            makeAmpersandRedirects(pageTitle, foreign)
+            for rPage in getRedirectsToPage(pageTitle, namespaces=0):
+                makeAmpersandRedirects(rPage.title(), foreign, pageTitle)
+        except pywikibot.exceptions.TitleblacklistError:
+            print('Skipping (title blacklist error): ', pageTitle)
 
 
 def makeAmpersandRedirects(
         pageTitle: str, foreign: Set[str],
+        targetPageTitle: Optional[str] = None,
         andToAmpersand: bool = True, ampersandToAnd: bool = True) -> bool:
     """If pageTitle contains 'and'/'&', try creating redirect from '&'/'and'.
 
     `foreign` is a set of foreign-language titles to avoid.
     Return whether any edits made.
     """
+    if len(pageTitle) > 95:
+        print('Skipping (length): ', pageTitle)
+        return False
+    if not targetPageTitle:
+        targetPageTitle = pageTitle
     rTitle = ''
     if ' and ' in pageTitle and andToAmpersand:
         rTitle = pageTitle.replace(' and ', ' & ')
@@ -62,12 +78,13 @@ def makeAmpersandRedirects(
         if pageTitle in foreign:
             print('Skipping (lang category): ', pageTitle)
             return False
-        isReliable, _, details = \
-            pycld2.detect(pageTitle, isPlainText=True)
-        if not isReliable or details[0][0] != 'ENGLISH':
-            print('Skipping (lang detect): ', pageTitle)
-            print(isReliable, str(details))
-            return False
+        if not EnglishWordList.check(pageTitle):
+            isReliable, _, details = \
+                pycld2.detect(pageTitle, isPlainText=True)
+            if not isReliable or details[0][0] != 'ENGLISH':
+                print('Skipping (lang detect): ', pageTitle)
+                print(isReliable, str(details))
+                return False
     if not rTitle:
         return False
     # Try creating a redirect from rTitle to pageTitle.
@@ -77,10 +94,50 @@ def makeAmpersandRedirects(
         print('Skipping (already exists): ', rTitle)
         return False
     # Create the redirect.
-    print(f'Creating redirect from [[{rTitle}]] to [[{pageTitle}]]')
-    rNewContent = f'#REDIRECT [[{pageTitle}]]\n{{{{R from modification}}}}\n'
+    print(f'Creating redirect from [[{rTitle}]] to [[{targetPageTitle}]]')
+    rNewContent = (
+        f'#REDIRECT [[{targetPageTitle}]]\n'
+        f'{{{{R from modification}}}}\n'
+    )
     summary = 'Redirect between ampersand/and variant.'
     return trySaving(rPage, rNewContent, summary, overwrite=False)
+
+
+class EnglishWordList:
+    """Static class for checking whether a title is English."""
+
+    wordSet: Set[str] = set()
+
+    @staticmethod
+    def init() -> None:
+        """Initialize word list from /usr/share/dict/words."""
+        # The words list includes too many 1-3 letter words, so we exclude
+        # these and give our own short list.
+        for word in ['a', 'an', 'the', 'of', 'art', 'gun', 'for', 'new', 'acm',
+                     'age', 'air', 'all', 'and', 'war', 'use', 'to', 'tax',
+                     'sun', 'tax', 'sky', 'tap', 'sex', 'on', 'or', 'owl',
+                     'pop', 'oil', 'men', 'man', 'law', 'its', 'in', 'ibm',
+                     'hiv/aids', 'dna', 'at', 'j', 'car', 'bioorganic',
+                     'biomolecular']:
+            EnglishWordList.wordSet.add(word)
+        with open('/usr/share/dict/words') as f:
+            for line in f:
+                line = line.strip().casefold()
+                # if len(line) > 2:
+                if line not in ['co'] and len(line) > 3:
+                    EnglishWordList.wordSet.add(line)
+        for word in ['bianco', 'nero']:
+            EnglishWordList.wordSet.remove(word)
+
+    @staticmethod
+    def check(title: str) -> bool:
+        """Return whether each word in title is in dictionary."""
+        for s in title.split():
+            s = re.sub(r'[0-9(),&!\.\':\-\–\—’]', '', s).casefold()
+            if s and s not in EnglishWordList.wordSet:
+                print(f'Word "{s}" is not english."')
+                return False
+        return True
 
 
 if __name__ == "__main__":
