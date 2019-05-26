@@ -143,7 +143,7 @@ def checkDBAbbrevs(pageTitle: str, infobox: Dict[str, str]) -> bool:
                     return False
                 else:
                     iso = infobox.get('abbreviation', '')
-                    regexToCut = r'[^A-Za-z0-9]'  # r'[ .:()\-]'
+                    regexToCut = r'[^A-Za-z]'  # r'[ .:()\-]'
                     isoCut = re.sub(regexToCut, '', unidecode(iso))
                     shouldCut = re.sub(regexToCut, '', unidecode(shouldHave))
                     if isoCut != shouldCut:
@@ -363,7 +363,7 @@ def getRequiredRedirects(page: pywikibot.Page) \
         if not msn:
             if infobox.get('issn'):
                 msn = issnToAbbrev['mathscinet'].get(infobox['issn'])
-            if not nlm and infobox.get('eissn'):
+            if not msn and infobox.get('eissn'):
                 msn = issnToAbbrev['mathscinet'].get(infobox['eissn'])
             if msn and msn == infobox.get('abbreviation'):
                 result[msn] |= RCatSet.MSN
