@@ -1,6 +1,6 @@
 """Various common utils shared by the bots."""
 import re
-from typing import Any, Dict, Iterator, Optional, Set
+from typing import Dict, Iterator, Optional, Set
 import unicodedata
 
 import mwparserfromhell
@@ -148,7 +148,7 @@ def getPagesWithTemplate(name: str, content: bool = False) \
 
 
 def getRedirectsToPage(
-        pageTitle: str, namespaces: Any = None,
+        pageTitle: str, namespaces: int = 0,
         total: Optional[int] = None, content: bool = False) \
         -> Iterator[pywikibot.Page]:
     """Yield all pages that are redirects to `page`.
@@ -162,7 +162,7 @@ def getRedirectsToPage(
     Note also we disregard double redirects: these are few and
     eventually resolved by dedicated bots.
     """
-    return Site()._generator(  # pylint: disable=protected-access
+    gen = Site()._generator(  # pylint: disable=protected-access
         pywikibot.data.api.PageGenerator,
         type_arg="redirects",
         titles=pageTitle,
@@ -170,6 +170,10 @@ def getRedirectsToPage(
         namespaces=namespaces,
         total=total,
         g_content=content)
+    # Workaround bug: https://phabricator.wikimedia.org/T224246
+    for page in gen:
+        if page.namespace().id == namespaces:
+            yield page
 
 
 def getInfoboxJournals(page: pywikibot.Page) \
