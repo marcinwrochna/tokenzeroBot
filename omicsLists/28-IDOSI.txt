@@ -1,0 +1,77 @@
+target = Category:International Digital Organization for Scientific Information academic journals
+category = International Digital Organization for Scientific Information academic journals
+---
+Academic Journal of Animal Diseases
+Academic Journal of Cancer Research
+Academic Journal of Entomology
+Academic Journal of Nutrition
+Academic Journal of Oral and Dental Medicine
+Academic Journal of Plant Sciences
+Acta Parasitologica Globalis
+Acta Science, Technology and Management
+Advances in Biological Research
+African Journal of Basic & Applied Sciences
+Agricultural Economics & Marketing Journal
+Agricultural Engineering Research Journal
+American-Eurasian Journal of Agricultural & Environmental Sciences
+American-Eurasian Journal of Agronomy
+American-Eurasian Journal of Botany
+American-Eurasian Journal of Scientific Research
+American-Eurasian Journal of Toxicological Sciences
+Applied Journal of Hygiene
+Asian Journal of Business Management Studies
+Botany Research International
+British Journal of Poultry Sciences
+Computational and Applied Mathematical Sciences
+European Journal of Applied Sciences
+European Journal of Biological Sciences
+Global Journal of Biotechnology & Biochemistry
+Global Journal of Environmental Research
+Global Journal of Molecular Sciences
+Global Journal of Pharmacology
+Global Veterinaria
+Humanity and Social Sciences Journal
+International Journal of Basic and Applied Virology
+International Journal of Clinical Pathology
+International Journal of Economic Theory and Policy
+International Journal of Genetics
+International Journal of Microbiological Research
+International Journal of Nuts and Related Sciences
+International Journal of Pharmacy and Medical Sciences
+International Journal of Physics
+International Journal of Planetary & Space Research
+International Journal of Sustainable Agriculture
+International Journal of Water Resources & Environmental Sciences
+Journal of Approximate Reasoning
+Journal of Forestry and Environment
+Journal of Horticultural Science & Ornamental Plants
+Journal of Oceanography and Marine Environmental System
+Journal of Reproduction and Infertility
+Journal of Theoretical & Applied Statistics
+Libyan Agriculture Research Center Journal International
+Middle-East Journal of Applied Sciences
+Middle-East Journal of Medicinal Plants Research
+Middle-East Journal of Scientific Research
+Omar El-Mukhtar Journal of Biological Sciences
+Research Journal of Earth Sciences
+Studies in Nonlinear Sciences
+World Applied Sciences Journal
+World Engineering & Applied Sciences Journal
+World Information Technology Journal
+World Journal of Agricultural Sciences
+World Journal of Alternative Medicine
+World Journal of Chemistry
+World Journal of Computer Sciences
+World Journal of Dairy & Food Sciences
+World Journal of Environmental Pollution
+World Journal of Fish and Marine Sciences
+World Journal of Fungal and Plant Biology
+World Journal of Islamic History and Civilization
+World Journal of Management and Behavioral Studies
+World Journal of Medical Sciences
+World Journal of Nano Science & Technology
+World Journal of Natural Products Research
+World Journal of Nursing Sciences
+World Journal of Scientific Research
+World Journal of Sport Sciences
+World Journal of Zoology
