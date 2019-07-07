@@ -15,7 +15,7 @@ For example:
 import logging
 import re
 import sys
-from typing import List, Optional, Tuple
+from typing import List, Optional
 
 import pywikibot
 import pywikibot.data.api
@@ -60,64 +60,77 @@ def main() -> None:
                 print(f'Config line {i}/{numLines} \t [{filename}]')
                 if title == '---':
                     configEnd = i
-                    rTarget, rCat, publisher = parseConfigLines(configLines)
+                    config = Config(configLines)
                 else:
                     configLines.append(title)
             else:
                 print(f'Title line {i - configEnd}/{numLines - configEnd} \t '
                       f'[{filename}]')
-                doOmicsRedirects(title, rTarget, rCat)
-                assert publisher
-                doOmicsHatnotes(title, publisher)
+                doOmicsRedirects(title, config)
+                if config.publisher:
+                    doOmicsHatnotes(title, config.publisher)
             sys.stdout.flush()
     state.saveState(STATE_FILE_NAME)
 
 
-def parseConfigLines(lines: List[str]) -> Tuple[str, str, Optional[str]]:
-    """Parse the config part of the input file and check sanity."""
-    rTarget: Optional[str] = None
-    rCat: Optional[str] = None
-    publisher = None
-    for line in lines:
-        key, value = line.split('=', 2)
-        key = key.strip()
-        value = value.strip()
-        if key == 'target':
-            rTarget = value
-        elif key == 'category':
-            rCat = value
-        elif key == 'publisher':
-            publisher = value
-        else:
-            raise Exception(f'Unrecognized configuration key "{key}".')
-    if not rTarget:
-        raise Exception(f'No target configured!')
-    if not rCat:
-        raise Exception(f'No category configured!')
-    targetPage = pywikibot.Page(Site(), rTarget)
-    if (not targetPage.exists()
-            or targetPage.isRedirectPage()
-            or targetPage.isCategoryRedirect()
-            or targetPage.isDisambig()):
-        raise Exception(f'Target [[{rTarget}]] does not exists '
-                        f'or is a redirect.')
-    catPage = pywikibot.Page(Site(), 'Category:' + rCat)
-    if (not catPage.exists()
-            or not catPage.is_categorypage()
-            or catPage.isCategoryRedirect()):
-        raise Exception(f'[[Category:{rCat}]] does not exist '
-                        f'or is not category or is redirect.')
-    if publisher:
-        pubPage = pywikibot.Page(Site(), publisher)
-        if not pubPage.exists():
-            raise Exception(f'Publisher page [[{publisher}]] does not exist.')
-    print(f'Redirect target = [[{rTarget}]]')
-    print(f'Redirect cat = [[Category:{rCat}]]')
-    print(f'Redirect publisher = [[{publisher}]]')
-    return rTarget, rCat, publisher
+class Config:
+    """Configuration read from the list file."""
+
+    def __init__(self, lines: List[str]):
+        """Parse the config part of the input file and check sanity."""
+        self.rTarget: str
+        self.rCat: str
+        self.publisher: Optional[str] = None
+        self.anchor: bool = False
+
+        rTarget: Optional[str] = None
+        rCat: Optional[str] = None
+
+        for line in lines:
+            key, value = line.split('=', 2)
+            key = key.strip()
+            value = value.strip()
+            if key == 'target':
+                rTarget = value
+            elif key == 'category':
+                rCat = value
+            elif key == 'publisher':
+                self.publisher = value
+            elif key == 'anchor':
+                self.anchor = True
+            else:
+                raise Exception(f'Unrecognized configuration key "{key}".')
+        if not rTarget:
+            raise Exception(f'No target configured!')
+        self.rTarget = rTarget
+        if not rCat:
+            raise Exception(f'No category configured!')
+        self.rCat = rCat
+        targetPage = pywikibot.Page(Site(), rTarget)
+        if (not targetPage.exists()
+                or targetPage.isRedirectPage()
+                or targetPage.isCategoryRedirect()
+                or targetPage.isDisambig()):
+            raise Exception(f'Target [[{rTarget}]] does not exists '
+                            f'or is a redirect.')
+        catPage = pywikibot.Page(Site(), 'Category:' + rCat)
+        if (not catPage.exists()
+                or not catPage.is_categorypage()
+                or catPage.isCategoryRedirect()):
+            raise Exception(f'[[Category:{rCat}]] does not exist '
+                            f'or is not category or is redirect.')
+        if self.publisher:
+            pubPage = pywikibot.Page(Site(), self.publisher)
+            if not pubPage.exists():
+                raise Exception(f'Publisher [[{self.publisher}]] does not '
+                                f'exist.')
+        print(f'Redirect target = [[{self.rTarget}]]')
+        print(f'Redirect cat = [[Category:{self.rCat}]]')
+        print(f'Redirect publisher = [[{self.publisher}]]')
+        print(f'Anchor = {"true" if self.anchor else "false"}')
 
 
-def doOmicsRedirects(title: str, rTarget: str, rCat: str) -> None:
+def doOmicsRedirects(title: str, config: Config) -> None:
     """Create redirects for given OMICS journal."""
     # If [[title]] exists, add '(journal)', unless its a redirect
     # (either one we did, maybe to be fixed, or an unexpected one we'll skip).
@@ -175,16 +188,16 @@ def doOmicsRedirects(title: str, rTarget: str, rCat: str) -> None:
         if addJournal and rType != 'iso4':
             rTitle = rTitle + ' (journal)'
 
-        r = createOmicsRedirect(rTitle, rType, rTarget, rCat, tryOnly=True)
+        r = createOrFixOmicsRedirect(rTitle, rType, config, tryOnly=True)
         if r == 'unfixable':
             print(f'Skip: [[{title}]] unfixable.')
             return
 
-    # Create the redirects.
+    # Create or replace the redirects.
     for (rTitle, rType) in rTitles:
         if addJournal and rType != 'iso4':
             rTitle = rTitle + ' (journal)'
-        createOmicsRedirect(rTitle, rType, rTarget, rCat, tryOnly=False)
+        createOrFixOmicsRedirect(rTitle, rType, config, tryOnly=False)
 
 
 def doOmicsHatnotes(title: str, publisher: str) -> None:
@@ -235,16 +248,16 @@ def addOmicsHatnote(aTitle: str, title: str, publisher: str) -> None:
               summary='Add hatnote to predatory journal clone.')
 
 
-def createOmicsRedirect(title: str, rType: str,
-                        target: str, category: str, tryOnly: bool) -> str:
+def createOrFixOmicsRedirect(title: str, rType: str,
+                             config: Config, tryOnly: bool) -> str:
     """Attempt to create or fix redirect from [[title]] to [[target]].
 
     We return 'create' if non-existing, 'done' if basically equal to what we
     would add, 'fix' if exists but looks fixable, 'unfixable' otherwise.
     Also create talk page with {{WPJournals}} when non-existing.
     """
-    rText = '#REDIRECT[[' + target + ']]\n'
-    rCat = '[[Category:' + category + ']]\n' if category else ''
+    rText = '#REDIRECT[[' + config.rTarget + ']]\n'
+    rCat = '[[Category:' + config.rCat + ']]\n' if config.rCat else ''
     rIsoCat = '{{R from ISO 4}}\n'
     rSortTitle = title
     if rSortTitle.startswith('The ') and '(' not in title:
@@ -253,6 +266,8 @@ def createOmicsRedirect(title: str, rType: str,
         rSortTitle = rSortTitle.replace(' & ', ' and ')
     if rSortTitle != title:
         rSort = '{{DEFAULTSORT:' + rSortTitle + '}}\n'
+    if config.anchor:
+        rText = '#REDIRECT[[' + config.rTarget + '#' + rSortTitle[0] + ']]\n'
 
     rNewContent = rText
     if rSortTitle != title:
@@ -296,8 +311,12 @@ def createOmicsRedirect(title: str, rType: str,
         text = text.replace(rCat.strip(), '')
     text = text.replace(rIsoCat.strip(), '')
     text = re.sub(r'\{\{DEFAULTSORT:[^\}]*\}\}', '', text)
-    textStripped = re.sub(r'\s', '', text, re.M).strip()
-    rTextStripped = re.sub(r'\s', '', rText, re.M).strip()
+    # Strip link anchors and whitespace before comparing
+    regex = r'(' + re.escape(config.rTarget) + r')\#.'
+    textStripped = re.sub(regex, r'\1', text, re.M)
+    textStripped = re.sub(r'\s', '', textStripped, re.M).strip()
+    rTextStripped = re.sub(regex, r'\1', rText, re.M)
+    rTextStripped = re.sub(r'\s', '', rTextStripped, re.M).strip()
     if textStripped != rTextStripped:
         print(f'Not fixable: [[{title}]]  (type={rType}).')
         print('---IS-------------')
