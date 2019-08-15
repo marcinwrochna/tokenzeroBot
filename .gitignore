@@ -6,3 +6,4 @@ abbrevBotState.json
 .cronState.json
 .cronjob.lock
 .vscode/launch.json
+node_modules

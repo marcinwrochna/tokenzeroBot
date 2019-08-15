@@ -29,11 +29,14 @@ from typing import Any, Dict, Optional
 #         ...
 #     }
 __state = {}  # type: Dict[str, Dict[str, Any]]
+_stateFileName = ''
 
 
 def loadOrInitState(stateFileName: str) -> None:
     """Load `state` from `STATE_FILE_NAME` or create a new one."""
     global __state  # pylint: disable=global-statement
+    global _stateFileName  # pylint: disable=global-statement
+    _stateFileName = stateFileName
     opened = False
     try:
         with open(stateFileName, 'rt') as f:
@@ -60,10 +63,17 @@ def dump() -> str:
     return json.dumps(__state, indent="\t")
 
 
-def saveTitleToAbbrev(title: str) -> None:
-    """Save `title` for computing its abbrev later, by running abbrevIso.js."""
+def saveTitleToAbbrev(title: str, language: Optional[str] = None) -> None:
+    """Save `title` for computing its abbrev later with exampleScript.js."""
     if title not in __state['abbrevs']:
-        __state['abbrevs'][title] = False
+        __state['abbrevs'][title] = {
+            'all': None,
+            'eng': None,
+            'matchingPatterns': None
+        }
+    if language is not None:
+        if language not in __state['abbrevs'][title]:
+            __state['abbrevs'][title][language] = None
 
 
 class NotComputedYetError(LookupError):
@@ -71,23 +81,32 @@ class NotComputedYetError(LookupError):
 
     def __init__(self, title: str) -> None:
         super().__init__(title)
-        self.message = ('No computed abbreviation stored for "' + title + '", '
-                        'please rerun exampleScript.js .')
+        self.message = (f'No computed abbreviation stored for "{title}", '
+                        f'please rerun "exampleScript.js {_stateFileName}".')
 
 
-def hasAbbrev(title: str) -> bool:
+def hasAbbrev(title: str, language: Optional[str] = None) -> bool:
     """Return whetever the abbrev for given title is saved and computed."""
     if title not in __state['abbrevs']:
         return False
-    return bool(__state['abbrevs'][title])
+    elif language is None:
+        return bool(__state['abbrevs'][title])
+    elif language not in __state['abbrevs'][title]:
+        return False
+    else:
+        return bool(__state['abbrevs'][title][language])
 
 
 def getAbbrev(title: str, language: str) -> str:
     """Return abbreviation for given (page or infobox) title.
 
-    `language` should be 'all' or 'eng', depending on which LTWA rules to use.
+    `language` should be 'all' or comma-separated list of ISO 639-2 codes,
+    e.g. 'eng' for English. Multilingual 'mul' is always appended anyway.
     """
-    if title not in __state['abbrevs'] or not __state['abbrevs'][title]:
+    if (title not in __state['abbrevs']
+            or not __state['abbrevs'][title]
+            or language not in __state['abbrevs'][title]
+            or not __state['abbrevs'][title][language]):
         raise NotComputedYetError(title)
     return __state['abbrevs'][title][language]
 
@@ -99,7 +118,7 @@ def tryGetAbbrev(title: str, language: str) -> Optional[str]:
         result = getAbbrev(title, language)
     except NotComputedYetError as err:
         print(err.message)
-        saveTitleToAbbrev(title)
+        saveTitleToAbbrev(title, language)
     return result
 
 
@@ -114,7 +133,9 @@ def getAllAbbrevs(title: str) -> Dict[str, str]:
 
 def getMatchingPatterns(title: str) -> str:
     """Return matching LTWA patterns for given title to abbreviate."""
-    if title not in __state['abbrevs'] or not __state['abbrevs'][title]:
+    if (title not in __state['abbrevs']
+            or not __state['abbrevs'][title]
+            or 'matchingPatterns' not in __state['abbrevs'][title]):
         raise NotComputedYetError(title)
     return __state['abbrevs'][title]['matchingPatterns']
 

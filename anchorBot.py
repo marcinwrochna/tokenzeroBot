@@ -9,7 +9,7 @@ import pywikibot
 import pywikibot.data.api
 from pywikibot import Site
 
-from utils import initLimits, trySaving
+from utils import initLimits, getRedirectsToPage, trySaving
 
 
 def main() -> None:
@@ -32,9 +32,20 @@ def main() -> None:
     listPage = pywikibot.Page(Site(), listTitle)
     if not listPage.exists():
         raise Exception(f'Page [[{listTitle}]] does not exist.')
-    # for rPage in getRedirectsToPage(listTitle, namespaces=0, content=True):
     for rTitle, anchor in parseList(listPage.text):
         fixRedirectAnchor(rTitle, anchor, listTitle)
+    exceptions = [
+        'List of Hindawi academic journals',
+        'Hindawi academic journal',
+        'List of MDPI academic journals',
+        'List of MDPI journals',
+        'List of Dove Medical Press academic journals',
+        'List of Dove Press academic journals',
+        'List of Medknow Publications academic journals']
+    for rPage in getRedirectsToPage(listTitle, namespaces=0, content=True):
+        rTitle = rPage.title()
+        if rTitle not in exceptions:
+            fixRedirectAnchor(rTitle, getPredictedAnchor(rTitle), listTitle)
 
 
 def parseList(page: str) -> List[Tuple[str, str]]:
@@ -89,11 +100,11 @@ def fixRedirectAnchor(rTitle: str, anchor: str, target: str) -> bool:
         print(f'WARNING: Anchor mismatch: '
               f'[[{rPage.title()}]] -> [[{actualTarget[0]}]].'
               f'Is "{actualTarget[1]}" should be "{anchor}".')
-    predictedAnchor = re.sub(r'^(The|the|A|a)\s+', '', rTitle)[0]
+    predictedAnchor = getPredictedAnchor(rTitle)
     if predictedAnchor != anchor:
         print(f'WARNING: Anchor mismatch: '
               f'[[{rPage.title()}]] -> [[{actualTarget[0]}]].'
-              f'predicted "{predictedAnchor}" should be "{anchor}".')
+              f'Predicted "{predictedAnchor}" should be "{anchor}".')
 
     rText = rPage.text
     rNewText = re.sub(r'''(
@@ -115,6 +126,13 @@ def fixRedirectAnchor(rTitle: str, anchor: str, target: str) -> bool:
               'Add anchor to redirect, as it points to a long list.',
               overwrite=True)
     return True
+
+
+def getPredictedAnchor(title: str) -> str:
+    """Return predicted anchor for given title, usually first letter."""
+    title = re.sub(r'^(the|a|an|der|die|das|den|dem|le|la|les|el|il)\s+', '',
+                   title.lower())
+    return title[0].upper()
 
 
 if __name__ == "__main__":

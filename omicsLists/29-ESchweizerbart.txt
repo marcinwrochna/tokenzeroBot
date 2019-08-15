@@ -1,0 +1,162 @@
+target = List of E. Schweizerbart serials
+category = E. Schweizerbart academic journals
+anchor = true
+---
+ger;Abhandlungen der Preußischen Geologischen Landesanstalt
+ger;Abhandlungen der Senckenberg Gesellschaft für Naturforschung
+eng;Advances in Bryology
+eng;Advances in Geoecology
+eng;Advances in Limnology
+ger;Afrika-Kartenwerk
+ger;Akademie für Geowissenschaften und Geotechnologien, Veröffentlichungen
+eng;Algological Studies
+ger;Altlastenforum Baden-Württemberg e.V., Schriftenreihe
+eng;Animal Cytogenetics
+ger;Annales Universitatis Saraviensis
+ger;Anthropologischer Anzeiger
+ger;Arbeiten aus dem Limnologischen Institut der Universität Konstanz (Walter Schlienz Institut)
+ger;Arbeitshefte Geologie Baugrund Rohstoffe
+ger;Archiv für Hydrobiologie Supplementbände
+ger;Archiv für Lagerstättenforschung der Preußischen Geologischen Landesanstalt
+ger;Archiv für Molluskenkunde
+ger;Atlas Ost- und Südosteuropa
+eng;Basic and Applied Dryland Research
+ger;Beihefte zum Geologischen Jahrbuch
+ger;Beiträge zur Regionalen Geologie der Erde
+ger;Berichte der Deutschen Mineralogischen Gesellschaft
+ger;Berliner Beiträge zur Ökologie
+lat;Bibliographia Phytosociologica Syntaxonomica
+lat;Bibliotheca Botanica
+lat;Bibliotheca Diatomologica
+lat;Bibliotheca Lichenologica
+lat;Bibliotheca Mycologica
+lat;Bibliotheca Phycologica
+ger;Bodenschutzrecht-Praxis
+ger;Botanische Jahrbücher für Systematik, Pflanzengeschichte und Pflanzengeographie
+ger;Bryophytorum Bibliotheca
+eng;Catena Paperback
+eng;Catena Supplements
+fre;Colloques Phytosociologiques
+eng;Contributions to Sedimentary Geology
+ger;Courier Forschungsinstitut Senckenberg
+eng;Cytotaxonomical Atlases
+ger;Deutsches Handwörterbuch der Tektonik
+eng;Diatom Research
+ger;Die Binnengewässer
+lat;Dissertationes Botanicae
+eng;Ecovision World Monograph Series
+ger;Einführung in die Paläobiologie
+eng;Eisenack Catalog of Fossil Dinoflagellates
+eng;Encyclopedia of Plant Anatomy
+lat;Entomologia Generalis
+eng;European Journal of Mineralogy
+lat;Flora Mycologica Iberica
+lat;Flora et Vegetatio Mundi
+eng;Fundamental and Applied Limnology
+lat;Fungorum Rariorum Icones Coloratae
+ger;GBL Gemeinschaftsvorhaben
+eng;GeoEcology Essay
+eng;GeoEcology Paperback
+eng;GeoEcology Textbook
+ger;Geocolleg
+eng;Geoexploration Monographs
+ger;Geologisches Jahrbuch
+ger;Geologisches Jahrbuch Reihe A
+ger;Geologisches Jahrbuch Reihe B
+ger;Geologisches Jahrbuch Reihe C
+ger;Geologisches Jahrbuch Reihe D
+ger;Geologisches Jahrbuch Reihe E
+ger;Geologisches Jahrbuch Reihe F
+ger;Geologisches Jahrbuch Reihe G
+ger;Geologisches Jahrbuch Reihe H
+eng;Geotectonic Research
+eng;Global Tectonics and Metallogeny
+eng;Griffiths Flies of Nearctic Region
+ger;HOMO
+ger;Handbuch der Binnenfischerei Mitteleuropas
+ger;Handbuch der Geophysik
+ger;Handbuch der Seefischerei Nordeuropas
+ger;Herzogia
+ger;Hirt's Stichwortbücher
+lat;IAC Symposia
+lat;Index Hepaticarum
+ger;Jahresberichte und Mitteilungen des Oberrheinischen Geologischen Vereins
+eng;Journal of Geomorphology
+eng;KTB Report
+ger;Katalog der fossilen Dinoflagellaten, Hystrichosphären und verwandten Mikrofossilien
+ger;Kleine Senckenberg
+ger;Konzepte für die nachhaltige Entwicklung einer Flusslandschaft
+ger;Krystalinikum
+eng;Large Rivers
+eng;Leaf Venation Patterns
+ger;Lehrbuch der Hydrogeologie
+ger;Lehrbuch der Hydrologie
+lat;Lethea Geognostica
+ger;Limnologie Aktuell
+ger;Lindner, Erwin: Die Fliegen der Paläarktischen Region
+ger;Materialkundlich-Technische Reihe
+ger;Meteor
+ger;Meteorologische Zeitschrift
+ger;Mitteilungen der IVL
+ger;Mitteilungen der Deutschen Malakozoologischen Gesellschaft
+eng;Monograph Series on Mineral Deposits
+eng;Monographic Studies
+ger;Monographien von BGR und LBEG
+lat;Mycologia Memoir
+ger;Nachhaltiges Niedersachsen
+ger;Neues Jahrbuch für Geologie und Paläontologie
+ger;Neues Jahrbuch für Geologie und Paläontologie - Abhandlungen
+ger;Neues Jahrbuch für Geologie und Paläontologie - Monatshefte
+ger;Neues Jahrbuch für Mineralogie
+ger;Neues Jahrbuch für Mineralogie - Abhandlungen
+ger;Neues Jahrbuch für Mineralogie - Monatshefte
+eng;Newsletters on Stratigraphy
+lat;Nova Hedwigia
+ger;PFG Photogrammetrie, Fernerkundung, Geoinformation
+lat;Palaeontographica
+ger;Palaeontographica Abteilung A
+ger;Palaeontographica Abteilung B
+ger;Palaeontographica Supplementbände
+eng;Papers on Cyanobacterial Research
+eng;Perspectives in Phycology
+lat;Phanerogamarum Monographiae
+lat;Phytocoenologia
+eng;Plant Diversity and Evolution
+lat;Plinius
+eng;Proceedings of the Quadrennial IAGOD Symposia
+ger;Querschnitte
+ger;Reise in Ostafrika
+ger;Relief Boden Palaeoklima
+eng;Reports of the Princeton University Expedition to Patagonia
+eng;River Systems
+ger;Rohstoffwirtschaftliche Länderberichte
+ger;Rohstoffwirtschaftliche Länderstudien
+ger;Sammlung Geographischer Führer
+ger;Sammlung Geologischer Führer
+ger;Schriften der Gesellschaft für Verantwortung in der Wissenschaft
+ger;Schriftenreihe der Deutschen Gesellschaft für Geowissenschaften
+ger;Senckenberg Monographs
+ger;Senckenberg-Poster
+lat;Senckenbergiana Biologica
+lat;Senckenbergiana Lethaea
+lat;Senckenbergiana Maritima
+ger;Studienbücher der Geographie
+ger;Studienhefte zur Physik des Erdkörpers
+ger;Studienhefte zur angewandten Geophysik
+eng;Studies on Tropical Andean Ecosystems
+ger;Tropische Binnengewässer
+ger;Untersuchungen des Elbe-Aestuars
+ger;Untersuchungen über Angebote und Nachfrage Mineralischer Rohstoffe
+eng;Urbanization of the Earth
+ger;Verhandlungen IVL
+eng;Winters Naturwissenschaftliche Taschenbücher
+ger;Zeitschrift der Deutschen Gesellschaft für Geowissenschaften
+ger;Zeitschrift für Angewandte Geologie
+ger;Zeitschrift für Geomorphologie
+ger;Zeitschrift für Geomorphologie, Supplement Volumes
+ger;Zeitschrift für Geomorphologie, Supplementary Issues
+ger;Zentralblatt für Geologie und Paläontologie
+ger;Zentralblatt für Geologie und Paläontologie, Teil I
+ger;Zentralblatt für Geologie und Paläontologie, Teil II
+ger;Ziegler Catalogue of Conodonts
+eng;Zoologica

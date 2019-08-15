@@ -39,7 +39,7 @@ def main() -> None:
     # Initialize pywikibot.
     assert Site().code == 'en'
     initLimits(
-        editsLimits={'create': 300, 'talk': 300, 'fix': 300, 'hatnote': 0},
+        editsLimits={'create': 600, 'talk': 600, 'fix': 600, 'hatnote': 0},
         brfaNumber=6,
         onlySimulateEdits=True,
         botTrial=False
@@ -51,24 +51,29 @@ def main() -> None:
     configLines: List[str] = []
     numLines = sum(1 for line in open(filename) if line.rstrip())
     with open(filename) as f:
-        for i, title in enumerate(f):
-            title = title.strip()
-            if not title:
+        for i, line in enumerate(f):
+            line = line.strip()
+            if not line:
                 continue
 
             if configEnd is None:
                 print(f'Config line {i}/{numLines} \t [{filename}]')
-                if title == '---':
+                if line == '---':
                     configEnd = i
                     config = Config(configLines)
                 else:
-                    configLines.append(title)
+                    configLines.append(line)
             else:
                 print(f'Title line {i - configEnd}/{numLines - configEnd} \t '
                       f'[{filename}]')
-                doOmicsRedirects(title, config)
+                if config.lang:
+                    doOmicsRedirects(line, config)
+                else:
+                    parts = list(map(lambda x: x.strip(), line.split(';')))
+                    assert len(parts) == 2
+                    doOmicsRedirects(parts[1], config, parts[0])
                 if config.publisher:
-                    doOmicsHatnotes(title, config.publisher)
+                    doOmicsHatnotes(line, config.publisher)
             sys.stdout.flush()
     state.saveState(STATE_FILE_NAME)
 
@@ -81,7 +86,9 @@ class Config:
         self.rTarget: str
         self.rCat: str
         self.publisher: Optional[str] = None
-        self.anchor: bool = False
+        self.anchor: bool = False  # Whether redirects should contain anchor.
+        # (Anchors are guess trivially, as the first character).
+        self.lang: bool = False    # Whether titles are given with language.
 
         rTarget: Optional[str] = None
         rCat: Optional[str] = None
@@ -97,7 +104,9 @@ class Config:
             elif key == 'publisher':
                 self.publisher = value
             elif key == 'anchor':
-                self.anchor = True
+                self.anchor = (value.lower() not in ['false', 'no', '0'])
+            elif key == 'lang':
+                self.lang = (value.lower() not in ['false', 'no', '0'])
             else:
                 raise Exception(f'Unrecognized configuration key "{key}".')
         if not rTarget:
@@ -130,7 +139,9 @@ class Config:
         print(f'Anchor = {"true" if self.anchor else "false"}')
 
 
-def doOmicsRedirects(title: str, config: Config) -> None:
+def doOmicsRedirects(title: str,
+                     config: Config,
+                     lang: Optional[str] = None) -> None:
     """Create redirects for given OMICS journal."""
     # If [[title]] exists, add '(journal)', unless its a redirect
     # (either one we did, maybe to be fixed, or an unexpected one we'll skip).
@@ -168,24 +179,34 @@ def doOmicsRedirects(title: str, config: Config) -> None:
         rTitles.add((rTitle, 'the'))
         if ' and ' in rTitle:
             rTitles.add((rTitle.replace(' and ', ' & '), 'theand'))
-        elif ' & ' in rTitle and 'Acta' not in rTitle:
-            rTitles.add((rTitle.replace(' & ', ' and '), 'theand'))
+        elif ' & ' in rTitle:
+            if not lang or 'eng' in lang:
+                rTitles.add((rTitle.replace(' & ', ' and '), 'theand'))
 
     # Handle ISO-4 abbreviated variants.
     state.saveTitleToAbbrev(title)
+    if lang == 'ger':
+        lang = 'ger,eng,fra,lat'
+    if lang:
+        state.saveTitleToAbbrev(title, lang)
+
     try:
-        cLang = 'all' if ('acta' in title.lower()) else 'eng'
+        cLang = lang or 'eng'
         cAbbrev = state.getAbbrev(title, cLang)
+        cEngAbbrev = state.getAbbrev(title, 'eng')
     except state.NotComputedYetError as err:
         print(err.message)
         return
     if cAbbrev != title:
         rTitles.add((cAbbrev, 'iso4'))
         rTitles.add((cAbbrev.replace('.', ''), 'iso4'))
+    if cAbbrev != cEngAbbrev and cEngAbbrev != title:
+        rTitles.add((cEngAbbrev, 'uniso4'))
+        rTitles.add((cEngAbbrev.replace('.', ''), 'uniso4'))
 
     # Skip if any of the redirect variants exists and is unfixable.
     for (rTitle, rType) in rTitles:
-        if addJournal and rType != 'iso4':
+        if addJournal and (rType != 'iso4' or rType != 'uniso4'):
             rTitle = rTitle + ' (journal)'
 
         r = createOrFixOmicsRedirect(rTitle, rType, config, tryOnly=True)
@@ -195,7 +216,7 @@ def doOmicsRedirects(title: str, config: Config) -> None:
 
     # Create or replace the redirects.
     for (rTitle, rType) in rTitles:
-        if addJournal and rType != 'iso4':
+        if addJournal and (rType != 'iso4' or rType != 'uniso4'):
             rTitle = rTitle + ' (journal)'
         createOrFixOmicsRedirect(rTitle, rType, config, tryOnly=False)
 
@@ -280,10 +301,12 @@ def createOrFixOmicsRedirect(title: str, rType: str,
     rPage = pywikibot.Page(Site(), title)
     rTalkPage = rPage.toggleTalkPage()
     if not rPage.exists():
+        if rType == 'uniso4':
+            return 'ignore'
         if not tryOnly:
             print(f'Creating redirect from: [[{title}]].')
             trySaving(rPage, rNewContent,
-                      'Create redirect from predatory publisher\'s journal.',
+                      'Create redirect from journal to publisher.',
                       overwrite=False, limitType='create')
             if rType == 'plain' and not rTalkPage.exists():
                 content = '{{WPJournals|class=redirect}}'
@@ -327,6 +350,8 @@ def createOrFixOmicsRedirect(title: str, rType: str,
         return 'unfixable'
     # If it is fixable, fix it.
     if not tryOnly:
+        if rType == 'uniso4':
+            print(f'Removing iso4 tag from: [[{title}]].')
         print(f'Fixing redirect from: [[{title}]] (type={rType}).')
         print('---WAS------------')
         print(rPage.text)
@@ -334,12 +359,12 @@ def createOrFixOmicsRedirect(title: str, rType: str,
         print(rNewContent)
         print('==================')
         trySaving(rPage, rNewContent,
-                  'Fix redirect from predatory publisher\'s journal.',
+                  'Fix redirect from journal to publisher.',
                   overwrite=True, limitType='fix')
         if rType == 'plain' and not rTalkPage.exists():
             content = '{{WPJournals|class=redirect}}'
             trySaving(rTalkPage, content,
-                      'Fix redirect from predatory publisher\'s journal.',
+                      'Fix redirect from journal to publisher.',
                       overwrite=False, limitType='talk')
     return 'fix'
 
