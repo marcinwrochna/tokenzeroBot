@@ -1,0 +1,69 @@
+.ext-tinfobox-helper {
+    border: 1px solid #a2a9b1;
+    border-radius: 15px;
+    background-color: #f8f9fa;
+    margin: 1em 0;
+    padding: 1.2em;
+    padding-top: 0.5em;
+}
+.ext-tinfobox-helper h2 {
+    text-align: right;
+    margin-top: -0.3ex;
+    margin-right: -0.3em;
+    border: none;
+    color: #666;
+}
+.ext-tinfobox-helper h3 {
+    font-size: 1em;
+}
+.ext-tinfobox-helper table {
+    margin-left: 0.5em;
+    margin-top: 0;
+    border-collapse: collapse;
+}
+.ext-tinfobox-helper td {
+    border: 1px solid #ddd;
+    padding: 1pt 0.3em;
+    font-family: monospace;
+    white-space: break-spaces;
+}
+.ext-tinfobox-helper th:not(:empty) {
+    font-size: 0.9em;
+    background-color: #eee;
+    border: 1px #ddd solid;
+    border-radius: 4px;
+    padding: 0.2ex 1em;
+}
+.ext-tinfobox-helper th:nth-child(1) {
+    font-size: 1em;
+    text-align: left;
+}
+.ext-tinfobox-helper td:nth-child(4):empty {
+    border: none;
+}
+.ext-tinfobox-helper td:nth-child(2).selected {
+    background-color: #eef5ee;
+}
+.ext-tinfobox-helper td:nth-child(3).selected {
+    background-color: #eef5ee;
+}
+.ext-tinfobox-helper td:nth-child(3).nontrivial.selected {
+    font-weight: bold;
+}
+.ext-tinfobox-helper td:nth-child(2).absent {
+    font-style: italic;
+    font-size: 80%;
+    border: none;
+    text-align: center;
+    user-select: none;
+}    
+.ext-tinfobox-helper td:nth-child(3).absent {
+    font-style: italic;
+    font-size: 80%;
+    border: none;
+    text-align: center;
+    user-select: none;
+}
+.ext-tinfobox-helper ul {
+    list-style: none;
+}  

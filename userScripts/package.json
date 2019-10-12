@@ -1,0 +1,28 @@
+{
+  "name": "tokenzero-user-scripts",
+  "version": "0.0.1",
+  "description": "Random bunch of user-scripts for Wikipedia.",
+  "main": "infoboxJournal.js",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/marcinwrochna/tokenzeroBot.git"
+  },
+  "author": "Marcin Wrochna (https://github.com/marcinwrochna/)",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/marcinwrochna/tokenzeroBot/issues"
+  },
+  "homepage": "https://github.com/marcinwrochna/tokenzeroBot#readme",
+  "devDependencies": {
+    "@types/jquery": "^3.3.31",
+    "eslint": "^6.4.0",
+    "eslint-config-google": "*",
+    "eslint-config-standard": "^14.1.0",
+    "eslint-plugin-import": "^2.18.2",
+    "eslint-plugin-jsdoc": "^15.9.2",
+    "eslint-plugin-node": "^10.0.0",
+    "eslint-plugin-promise": "^4.2.1",
+    "eslint-plugin-standard": "^4.0.1",
+    "jshint": "^2.10.2"
+  }
+}

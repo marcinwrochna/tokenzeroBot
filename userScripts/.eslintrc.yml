@@ -1,0 +1,70 @@
+extends:
+  - google
+  - standard
+  - plugin:jsdoc/recommended
+env:
+  browser: true
+  jquery: true
+  es6: true
+parserOptions:
+  ecmaVersion: 2017
+globals:
+  $: readonly
+  mw: readonly
+rules:
+  # Where I disagree with both standard and google
+  indent:
+    - warn
+    - 4  # =default, standard=google=2
+  curly:  # default=all (always put braces), google=standard=multi-line (allow inline if () do();)
+    - error
+    - "multi-or-nest"
+    - "consistent"
+
+  # Where I agree with google but not with standard
+  semi:
+    - error
+    - always  # =default=google, standard=never
+  no-multiple-empty-lines:
+    - error
+    - max: 2  # =default=google, standard=1
+  space-before-function-paren:
+    - error
+    - named: "never"  # =google, default=standard=always
+      anonymous: "never"  # =googe, default=standard=always
+      asyncArrow: "always"  # =default=standard=google    
+
+  # Where I agree with standard but not with google
+  block-spacing:
+    - error
+    - "always"  # =default=standard, google=never ("{return true;}")
+  operator-linebreak:
+    - error
+    - "after"
+    - overrides: {"?": before, ":": before}  #=default,standard, google={after}
+  comma-dangle:
+    - error
+    - never  # =default=standard, google=always-multiline
+  eqeqeq:
+    - error
+    - "always"  # =default=standard, google=off
+    - null: "ignore"  # =standard, default=always
+  max-len:
+    - error
+    - code: 100  # standard=off, default=google=80  
+      ignoreUrls: true
+
+  # Other settings
+  no-undef:  # Ignores functions and classes in other files, no way reasonable way to tell who to import.
+    - off
+  no-unused-vars:  # Idem, and complains about unused class declarations even though they're global.
+    - off  # default={args: after-used}, standard=google={args: none}
+    - vars: local
+      varsIgnorePattern: "^_" 
+      argsIgnorePattern: "^_"
+  valid-jsdoc: off  # deprecated, we use plugin-jsdoc instead  
+  # Disable some plugin-jsdoc defaults  
+  jsdoc/require-param-description: off
+  jsdoc/require-returns-description: off
+  jsdoc/no-undefined-types: off  
+  jsdoc/check-types: off  # We use typescript anyway
