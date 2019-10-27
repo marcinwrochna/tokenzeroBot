@@ -159,13 +159,7 @@ export class TemplateChoice {
                 pc.preferOriginal = true;
 
             const row = $('<tr>');
-            let tooltip = `<span
-                class="ext-tinfobox-tooltip"
-                title="${util.escapeHTML(pc.templateData.description)}"
-            />`;
-            if (!pc.templateData.description)
-                tooltip = '';
-            row.append($(`<td>${tooltip}${pc.originalKey || canonicalKey}=</td>`));
+            row.append($(`<td>${pc.originalKey || canonicalKey}=</td>`));
             if (typeof pc.originalValue === 'string')
                 row.append($(`<td>${util.escapeHTML(pc.originalValue)}</td>`));
             else
@@ -182,7 +176,19 @@ export class TemplateChoice {
                 row.children().last().addClass('selected');
             if (!pc.isProposedValueTrivial())
                 row.children().last().addClass('nontrivial');
-            row.append($('<td>').append(HelperData.buildMessagesWidget(pc.messages)));
+            const messageTd = $('<td>');
+            const tooltip = $(`<span
+                class="ext-tinfobox-tooltip"
+                title="${util.escapeHTML(pc.templateData.description)}"
+            />`);
+            if (pc.templateData.description)
+                messageTd.append(tooltip);
+            const messageWidget = HelperData.buildMessagesWidget(pc.messages);
+            if (messageWidget !== '')
+                messageTd.append(messageWidget);
+            else
+                messageTd.addClass('empty');
+            row.append(messageTd);
 
             if (!pc.preferOriginal)
                 changedList.push(row);
