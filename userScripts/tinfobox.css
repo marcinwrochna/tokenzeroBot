@@ -35,8 +35,10 @@
     padding: 0.2ex 1em;
 }
 .ext-tinfobox-helper th:nth-child(1) {
-    font-size: 1em;
     text-align: left;
+}
+.ext-tinfobox-helper td:nth-child(1) {
+    white-space: nowrap;
 }
 .ext-tinfobox-helper td:nth-child(4):empty {
     border: none;
@@ -66,4 +68,13 @@
 }
 .ext-tinfobox-helper ul {
     list-style: none;
-}  
+}
+
+.ext-tinfobox-tooltip {
+    float:left;
+    margin-left: -20px;
+    width: 17px;
+    height: 17px;
+    display: block;
+    background-image: url("https://upload.wikimedia.org/wikipedia/commons/thumb/e/e9/Breezeicons-actions-22-help-about.svg/17px-Breezeicons-actions-22-help-about.svg.png");
+}

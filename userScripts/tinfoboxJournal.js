@@ -95,12 +95,13 @@ export async function fixInfoboxJournals(wikitext) {
     }
     if (ijTemplates.length === 0) {
         summary = 'Adding infobox journal ' + summary;
-        const index = result.match(/^( *({{.*}} *)*\n)*/m)[0].length;
         const ijt = new window.extraJs.Template('{{Infobox journal}}');
         ijt.setName('Infobox journal');
         const [infobox, templateChoice] =
             await rebuildInfoboxJournal(ijt, wikitext, templateData);
         helperData.templateChoices.push(templateChoice);
+        // Place after any initial template-only lines.
+        const index = result.match(/^( *({{.*}} *)*\n)*/m)[0].length;
         result = result.slice(0, index) + infobox + '\n' + result.slice(index);
     } else {
         summary = 'Standardizing infobox journal ' + summary;
@@ -132,20 +133,16 @@ export async function fixInfoboxJournals(wikitext) {
  */
 async function rebuildInfoboxJournal(ijt, wikitext, templateData) {
     const templateChoice = new TemplateChoice(templateData);
-    const weaklySuggested = ['bluebook', 'mathscinet', 'nlm',
-        'peer-reviewed', 'image_size', 'alt']; // 'ISSNlabel'? 'caption'?
 
     // For 'suggested' parameters, propose their 'autovalue'.
     // (Don't suggest the 'default', which is the value assumed when none is given).
-    // Suggest with empty string if no 'autovalue' given (instead of suggesting deletion).
     for (const param of templateData.params.values()) {
-        if (param.suggested) {
+        if (param.suggested || param.weaklySuggested) {
+            // Suggest with empty string if no 'autovalue' given (instead of suggesting deletion).
             templateChoice.param(param.key).proposedValue = param.autovalue || '';
-            // Prefer suggested value unless anything appears in ijt.parameters later.
-            templateChoice.param(param.key).preferOriginal = false;
-            // Only prefer weakly suggested value if introducing new template.
-            if (weaklySuggested.includes(param.key) && ijt.parameters.length)
-                templateChoice.param(param.key).preferOriginal = true;
+            // Prefer original value if weaklySuggested and prefer suggested value otherwise
+            // (unless anything appears in ijt.parameters later).
+            templateChoice.param(param.key).preferOriginal = param.weaklySuggested;
         }
     }
 
@@ -211,10 +208,10 @@ async function rebuildInfoboxJournal(ijt, wikitext, templateData) {
                 templateChoice.param(canonicalKey).preferOriginal = true;
         // Same if original value was a comment (other than autovalue), but notify.
         } else if (!p.value.replace(/<!--[^>]*-->/g, '').trim()) {
-            templateChoice.param(canonicalKey).messages.push({
+            /* templateChoice.param(canonicalKey).messages.push({
                 type: 'notice',
                 message: 'Replacing unexpected comment.'
-            });
+            }); */
             templateChoice.param(canonicalKey).preferOriginal = false;
         }
         // Otherwise we prefer the original by default.
@@ -432,7 +429,7 @@ async function getInfoboxJournalTemplateData() {
 
     templateData.paramOrder = [
         'title',
-        'italic title', // Added
+        'italic title',
         'image', 'image_size', 'alt',
         'caption',
         'former_name',
@@ -440,7 +437,7 @@ async function getInfoboxJournalTemplateData() {
         'bluebook',
         'mathscinet',
         'nlm',
-        'bypass-rcheck', // Added
+        'bypass-rcheck',
         'discipline',
         'peer-reviewed',
         'language',
@@ -466,36 +463,19 @@ async function getInfoboxJournalTemplateData() {
         'link3', 'link3-name', // Added
         'link4', 'link4-name', // Added
         'link5', 'link5-name', // Added
-        'boxwidth' // Added
+        'boxwidth', 'RSS', 'atom'
     ];
 
-    const addSuggested = ['image_size', 'alt', 'abbreviation', 'bluebook', 'mathscinet', 'nlm',
-        'peer-reviewed', 'ISSNlabel', 'link2', 'link2-name'];
+    const addSuggested = ['ISSNlabel', 'link2', 'link2-name'];
     for (const paramName of addSuggested)
         templateData.param(paramName).suggested = true;
 
-    /* eslint-disable no-multi-spaces, max-len */
-    const defaultParameters = new Map([
-        ['image',         '<!-- or |cover= -->'],
-        ['former_name',   '<!-- or |former_names= -->'],
-        ['abbreviation',  '<!-- ISO 4 abbreviation -->'],
-        ['bluebook',      '<!-- For law journals only -->'],
-        ['mathscinet',    '<!-- For the MathSciNet abbreviation IF different from ISO 4 abbreviation-->'],
-        ['nlm',           '<!-- For the NLM abbreviation IF different from ISO 4 abbreviation-->'],
-        ['discipline',    '<!-- or |subject= -->'],
-        ['editor',        '<!-- or |editors= -->'],
-        ['link2',         '<!-- up to |link5= -->'],
-        ['link2-name',    '<!-- up to |link5-name= -->']
-    ]);
-    /* eslint-enable no-multi-spaces, max-len */
-    for (const [key, value] of defaultParameters.entries())
-        templateData.param(key).autovalue = value;
-
-    // TODO move to actual TemplateData.
-    templateData.params.set('RSS', new TemplateDataParam('RSS'));
-    templateData.param('RSS').deprecated = true;
-    templateData.params.set('atom', new TemplateDataParam('atom'));
-    templateData.param('atom').deprecated = true;
+    const weaklySuggested = ['bluebook', 'mathscinet', 'nlm',
+        'peer-reviewed', 'image_size', 'alt', 'caption', 'ISSNlabel'];
+    for (const paramName of weaklySuggested) {
+        templateData.param(paramName).suggested = false;
+        templateData.param(paramName).weaklySuggested = true;
+    }
 
     return templateData;
 }

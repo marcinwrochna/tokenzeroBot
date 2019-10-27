@@ -15,7 +15,15 @@
  * @returns {string}
  */
 export function escapeHTML(s) {
-    return $('<div>').text(s).html();
+    const encoding = {
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;',
+        '`': '&#96;'
+    };
+    return String(s).replace(/[&<>"'`]/g, (s) => encoding[s]);
 }
 
 /**

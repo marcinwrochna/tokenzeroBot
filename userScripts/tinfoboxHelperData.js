@@ -144,6 +144,7 @@ export class TemplateChoice {
     buildParamTable() {
         const changedList = [];
         const proposedList = [];
+        const weaklySuggestedList = [];
         const otherList = [];
         const choices = this.templateData.reorder(this.paramChoices).entries();
         for (const [canonicalKey, pc] of choices) {
@@ -158,7 +159,13 @@ export class TemplateChoice {
                 pc.preferOriginal = true;
 
             const row = $('<tr>');
-            row.append($(`<td>${pc.originalKey || canonicalKey}=</td>`));
+            let tooltip = `<span
+                class="ext-tinfobox-tooltip"
+                title="${util.escapeHTML(pc.templateData.description)}"
+            />`;
+            if (!pc.templateData.description)
+                tooltip = '';
+            row.append($(`<td>${tooltip}${pc.originalKey || canonicalKey}=</td>`));
             if (typeof pc.originalValue === 'string')
                 row.append($(`<td>${util.escapeHTML(pc.originalValue)}</td>`));
             else
@@ -179,9 +186,11 @@ export class TemplateChoice {
 
             if (!pc.preferOriginal)
                 changedList.push(row);
-            else if (!pc.isProposedValueTrivial() ||
-                     (pc.templateData.suggested && pc.originalValue === null))
+            else if (!pc.isProposedValueTrivial())
                 proposedList.push(row);
+            else if ((pc.templateData.suggested || pc.templateData.weaklySuggested) &&
+                     pc.originalValue === null)
+                weaklySuggestedList.push(row);
             else if (pc.messages.length)
                 otherList.push(row);
             // Else: we prefer original, proposed value is trivial and not suggested as addition,
@@ -189,25 +198,29 @@ export class TemplateChoice {
         }
         let rows = [];
         rows.push($(`<tr>
-            <th></th><th>current value</th><th>automatic</th><th></th>
+            <th></th><th>current value</th><th>new value/suggested</th><th></th>
         </tr>`));
+        const makeHeadRow = (t) => $('<tr><th colspan="3">' + t + '</th></tr>');
         if (changedList.length) {
-            rows.push($('<tr><th colspan="3">Changed params</th></tr>'));
+            rows.push(makeHeadRow('<strong>Changed parameters</strong> (please fill empty ones)'));
             rows = rows.concat(changedList);
         } else {
-            rows.push($('<tr><td colspan="3">No parameters were changed.</td></tr>'));
+            rows.push(makeHeadRow('No parameters were changed.'));
         }
         if (proposedList.length) {
-            rows.push($('<tr><th colspan="3">Proposed changes</th></tr>'));
+            rows.push(makeHeadRow('<strong>Suggested changes</strong> (currently unchanged)'));
             rows = rows.concat(proposedList);
         }
+        if (weaklySuggestedList.length) {
+            rows.push(makeHeadRow('<strong>Additional parameters</strong>' +
+                ' (situational, omit by default)'));
+            rows = rows.concat(weaklySuggestedList);
+        }
         if (otherList.length) {
-            rows.push($('<tr><th colspan="3">Other warnings</th></tr>'));
+            rows.push(makeHeadRow('Other warnings'));
             rows = rows.concat(otherList);
         }
-        // if (changedList.length || proposedList.length || otherList.length)
         return $('<table>').append(rows);
-        // else return '';
     }
 }
 
