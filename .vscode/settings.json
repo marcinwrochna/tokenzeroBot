@@ -12,9 +12,9 @@
         "--strict",
         "--no-warn-return-any"
     ],
-    "python.linting.pep8Enabled": true,
-    "python.linting.pep8Path": "/usr/bin/pycodestyle-3",
-    "python.linting.pep8Args": ["--ignore=W503"],
+    "python.linting.pycodestyleEnabled": true,
+    "python.linting.pycodestylePath": "/usr/bin/pycodestyle-3",
+    "python.linting.pycodestyleArgs": ["--ignore=W503"],
     "python.linting.pydocstyleEnabled": true,
     "python.linting.pydocstyleArgs": [
         "--convention=numpy",
