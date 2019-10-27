@@ -44,6 +44,12 @@ export class TemplateDataParam {
         this.required = false;
         /** @type {boolean} */
         this.suggested = false;
+        /**
+         * @type {boolean}
+         * Suggested, but not added as empty by default; situational.
+         * This is tinfobox-specific. At most one of suggested/weaklySuggested should be true.
+         */
+        this.weaklySuggested = false;
         /** @type {(boolean|string)} - May be an instruction of what to use in place of it. */
         this.deprecated = false;
         /** @type {Array<string>} - Other names for the parameter. */
@@ -65,6 +71,7 @@ export class TemplateDataParam {
             example: this.example,
             required: this.required,
             suggested: this.suggested,
+            weaklySuggested: this.weaklySuggested,
             deprecated: this.deprecated,
             aliases: this.aliases
         };
@@ -206,6 +213,8 @@ export class TemplateData {
      * @returns {TemplateDataParam}
      */
     param(canonicalKey) {
+        // Don't save default param, because we check and report when a param has no TemplateData.
+        // Freeze to avoid mistaken attempts to make a new param starting from default values.
         if (!this.params.has(canonicalKey))
             return Object.freeze(new TemplateDataParam(canonicalKey));
         return this.params.get(canonicalKey);
