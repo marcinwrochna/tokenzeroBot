@@ -3,6 +3,9 @@
   "version": "0.0.1",
   "description": "Random bunch of user-scripts for Wikipedia.",
   "main": "infoboxJournal.js",
+  "scripts": {
+    "server": "http-server -c-1 -p 8000 --cors"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/marcinwrochna/tokenzeroBot.git"
