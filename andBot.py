@@ -30,22 +30,27 @@ def main() -> None:
 
     EnglishWordList.init()
 
+    journals: Set[str] = getCategoryAsSet('Academic journals by language')
+    magazines: Set[str] = getCategoryAsSet('Magazines by language')
+
     # Let 'foreign' be the set of page titles in a language-category
     # other than English, or in the multilingual category.
     foreign: Set[str] = set()
-    foreign = foreign | getCategoryAsSet('Academic journals by language')
-    foreign = foreign | getCategoryAsSet('Magazines by language')
+    foreign = foreign | journals
+    foreign = foreign | magazines
     foreign = foreign - getCategoryAsSet('English-language journals')
     foreign = foreign - getCategoryAsSet('English-language magazines')
     foreign = foreign | getCategoryAsSet('Multilingual journals')
     foreign = foreign | getCategoryAsSet('Multilingual magazines')
 
     for page in chain(
+            journals,
+            magazines,
             getPagesWithTemplate('Infobox journal'),
             getPagesWithTemplate('Infobox Journal'),
             getPagesWithTemplate('Infobox magazine'),
             getPagesWithTemplate('Infobox Magazine')):
-        pageTitle = page.title()
+        pageTitle = page if isinstance(page, str) else page.title()
         try:
             makeAmpersandRedirects(pageTitle, foreign)
             for rPage in getRedirectsToPage(pageTitle, namespaces=0):
@@ -55,9 +60,11 @@ def main() -> None:
 
 
 def makeAmpersandRedirects(
-        pageTitle: str, foreign: Set[str],
+        pageTitle: str,
+        foreign: Set[str],
         targetPageTitle: Optional[str] = None,
-        andToAmpersand: bool = True, ampersandToAnd: bool = True) -> bool:
+        andToAmpersand: bool = True,
+        ampersandToAnd: bool = True) -> bool:
     """If pageTitle contains 'and'/'&', try creating redirect from '&'/'and'.
 
     `foreign` is a set of foreign-language titles to avoid.
@@ -71,6 +78,7 @@ def makeAmpersandRedirects(
     rTitle = ''
     if ' and ' in pageTitle and andToAmpersand:
         rTitle = pageTitle.replace(' and ', ' & ')
+        rTitle = rTitle.replace(', & ', ' & ')
     if ' & ' in pageTitle and ampersandToAnd:
         rTitle = pageTitle.replace(' & ', ' and ')
         # Exclude possibly-foreign titles based on categories and
