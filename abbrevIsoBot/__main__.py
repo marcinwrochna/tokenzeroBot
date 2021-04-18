@@ -3,12 +3,14 @@
 The bot scrapes {{infobox journal}}s, computes ISO 4 abbreviations of titles,
 creates and fixes redirects and the `abbreviation` parameter.
 """
+import json
 import logging
 import re
 import sys
 from collections import defaultdict
-from typing import Any, DefaultDict, Dict, Tuple
-from enum import Flag, auto
+from datetime import datetime, timedelta, timezone
+from typing import Any, DefaultDict, Dict, Optional, Tuple
+from enum import auto, Flag
 from unidecode import unidecode
 
 import Levenshtein
@@ -17,13 +19,20 @@ import pywikibot.data.api
 from pywikibot import Site
 
 from abbrevIsoBot import reports, state, fill, abbrevUtils, databases
-from utils import initLimits, trySaving, tryPurging, \
+from utils import initLimits, printLimits, trySaving, tryPurging, \
     getRedirectsToPage, getPagesWithTemplate, getInfoboxJournals
 
 
 STATE_FILE_NAME = 'abbrevIsoBot/abbrevBotState.json'
 # Dicts from issn to abbrev in NLM/PubMed or MathSciNet database.
 issnToAbbrev: Dict[str, Dict[str, str]] = {'nlm': {}, 'mathscinet': {}}
+
+# Patchset to propose for Stitchpitch
+patchset: Dict[str, Any] = {
+    'patchtype': 'list',
+    'slug': 'ISO-4 language interpretation fix',
+    'patches': []
+}
 
 
 def main() -> None:
@@ -33,14 +42,15 @@ def main() -> None:
     # Initialize pywikibot.
     assert Site().code == 'en'
     initLimits(
-        editsLimits={'default': 200},
+        editsLimits={'default': 100},
         brfaNumber=2,
-        onlySimulateEdits=True,
+        onlySimulateEdits=False,
         botTrial=False,
         listLimit=None
     )
+    printLimits()
     # Run the given command or print a help message.
-    if len(sys.argv) != 2:
+    if len(sys.argv) < 2:
         printHelp()
     elif sys.argv[1] == 'test':
         doTest()
@@ -52,6 +62,8 @@ def main() -> None:
         doScrape(fixPages=True, writeReport=True)
     elif sys.argv[1] == 'fill':
         fill.doFillAbbrevs()
+    elif sys.argv[1] == 'patchlist':
+        doPatchlist(sys.argv[2])
     else:
         printHelp()
     state.saveState(STATE_FILE_NAME)
@@ -65,6 +77,8 @@ def printHelp() -> None:
 def doTest() -> None:
     """Test a bot edit (in userspace sandbox), e.g. to check flags."""
     # print(state.dump())
+    print(state.getAbbrev('Nature Reviews Clinical Oncology', 'eng'))
+    return
     page = pywikibot.Page(Site(), 'User:TokenzeroBot/sandbox')
     page.text = 'Testing bot.'
     page.save(
@@ -87,8 +101,9 @@ def doScrape(fixPages: bool = False, writeReport: bool = False) -> None:
     print(f'Loaded databases nlm={len(issnToAbbrev["nlm"])}'
           f' msn={len(issnToAbbrev["mathscinet"])}')
     articles = getPagesWithTemplate('Infobox journal', content=True)
+    # articles = [pywikibot.Page(Site(), 'Asiatic Society of Japan')]
     # articles = [pywikibot.Page(Site(), 'Annals of Mathematics')]
-    # Yields ~7500 pages.
+    # Yields ~8000 pages.
     # In case you'd want 'Category:Academic journals', you'd probably exclude
     # the subcategory 'Literary magazines' (in 'Humanities journals')
     # which includes all kinds of comic book magazines, for example.
@@ -129,6 +144,8 @@ def checkDBAbbrevs(pageTitle: str, infobox: Dict[str, str]) -> bool:
         issns.append(infobox['issn'])
     if infobox.get('eissn'):
         issns.append(infobox['eissn'])
+    iTitle = abbrevUtils.sanitizeField(infobox.get('title', ''))
+    iAbbrev = abbrevUtils.sanitizeField(infobox.get('abbreviation', ''))
     for t in ['nlm', 'mathscinet']:
         for issn in issns:
             issn = issn.replace('–', '-')
@@ -137,19 +154,18 @@ def checkDBAbbrevs(pageTitle: str, infobox: Dict[str, str]) -> bool:
                 if infobox.get(t):
                     if infobox[t] != shouldHave:
                         reports.reportBadDBAbbrev(
-                            pageTitle, infobox.get('title', ''),
-                            infobox.get('abbreviation', ''),
+                            pageTitle, iTitle,
+                            iAbbrev,
                             infobox[t], shouldHave, issn, t)
                     return False
                 else:
-                    iso = infobox.get('abbreviation', '')
                     regexToCut = r'[^A-Za-z]'  # r'[ .:()\-]'
-                    isoCut = re.sub(regexToCut, '', unidecode(iso))
+                    iAbbrevCut = re.sub(regexToCut, '', unidecode(iAbbrev))
                     shouldCut = re.sub(regexToCut, '', unidecode(shouldHave))
-                    if isoCut != shouldCut:
+                    if iAbbrevCut != shouldCut:
                         reports.reportBadDBAbbrev(
-                            pageTitle, infobox.get('title', ''),
-                            infobox.get('abbreviation', ''),
+                            pageTitle, iTitle,
+                            iAbbrev,
                             '', shouldHave, issn, t)
                         return False
     return True
@@ -165,7 +181,11 @@ def fixPageRedirects(page: pywikibot.Page) -> int:
         rNewContent = rcatSetToRedirectContent(title, rCats)
         # Attempt to create new redirect.
         if rTitle not in pageData['redirects']:
-            if pywikibot.Page(Site(), rTitle).exists():
+            try:
+                exists = pywikibot.Page(Site(), rTitle).exists()
+            except pywikibot.exceptions.InvalidTitle:
+                exists = False
+            if exists:
                 print(f'--Skipping existing page [[{rTitle}]] '
                       f'(not a redirect to [[{title}]]).')
                 if title == rTitle:
@@ -187,7 +207,12 @@ def fixPageRedirects(page: pywikibot.Page) -> int:
             if isValidISO4Redirect(rOldContent, title, rCats):
                 print(f'--Skipping existing valid redirect '
                       f'from [[{rTitle}]] to [[{title}]].')
-            elif isReplaceableRedirect(rOldContent, title, rCats):
+            elif isReplaceableRedirect(rOldContent, title,
+                                       rCats | RCatSet.ISO4):
+                # Don't log nor edit redirects that would be replaceable
+                # except they have ISO4 and we're not sure it should have.
+                if not (rCats & RCatSet.ISO4):
+                    continue
                 print(f'--Replacing existing redirect '
                       f'from [[{rTitle}]] to [[{title}]].\n'
                       f'RCatSet: {rCats}\n'
@@ -199,7 +224,7 @@ def fixPageRedirects(page: pywikibot.Page) -> int:
                 trySaving(rPage, rNewContent,
                           'Marking standard abbrev rcat. ',
                           overwrite=True)
-            else:
+            elif not skip:
                 print(f'--Skipping existing dubious redirect '
                       f'from [[{rTitle}]] to [[{title}]].\n'
                       f'RCatSet: {rCats}\n'
@@ -289,9 +314,15 @@ def getRequiredRedirects(page: pywikibot.Page) \
     pageData = state.getPageData(title)
     result: DefaultDict[str, RCatSet] = defaultdict(lambda: RCatSet(0))
     skip = False
-    for infobox in pageData['infoboxes']:
-        name = infobox.get('title', abbrevUtils.stripTitle(title))
-        iAbbrev = infobox.get('abbreviation', '')
+    for infoboxId, infobox in enumerate(pageData['infoboxes']):
+        altName = abbrevUtils.stripTitle(title)
+        iTitle = abbrevUtils.sanitizeField(infobox.get('title', ''))
+        name = iTitle or altName
+        # On Wikipedia, we used to remove subtitles/dependent titles.
+        # It seems not to change that much and it seems not doig that is better.
+        # name = re.sub(r'(.{6})[-:–(].*', r'\1', name)
+        # altName = re.sub(r'(.{6})[-:–(].*', r'\1', altName)
+        iAbbrev = abbrevUtils.sanitizeField(infobox.get('abbreviation', ''))
         iAbbrevDotless = iAbbrev.replace('.', '')
         if iAbbrev == '' or iAbbrev == 'no':
             print(f'--Abbrev param empty or "no", ignoring [[{title}]].')
@@ -300,38 +331,46 @@ def getRequiredRedirects(page: pywikibot.Page) \
         if ':' in iAbbrev[:5]:
             print(f'--Abbrev contains early colon, ignoring [[{title}]].')
             reports.reportTitleWithColon(
-                title, infobox.get('title', ''), iAbbrev)
+                title, iTitle, iAbbrev)
             skip = True
             continue
-        # If a valid ISO 4 redirect already exists for dotted version,
-        # there should be one for the dotless version too.
-        hasISO4Redirect = False
-        if iAbbrev in pageData['redirects'] \
-                and isValidISO4Redirect(pageData['redirects'][iAbbrev], title,
-                                        RCatSet.ISO4, strict=False)\
-                and iAbbrevDotless != iAbbrev:
-            hasISO4Redirect = True
+        hasISO4Redirect = \
+            iAbbrev in pageData['redirects'] \
+            and isValidISO4Redirect(pageData['redirects'][iAbbrev], title,
+                                    RCatSet.ISO4, strict=False)
         # If the abbreviation matches the computed one,
         # there should be a dotted and a dotless redirect.
-        cLang = abbrevUtils.getLanguage(infobox)
+        cLang = 'all'  # abbrevUtils.getLanguage(infobox)
         cAbbrev = state.tryGetAbbrev(name, cLang)
-        if cAbbrev is None:
+        cAltAbbrev = state.tryGetAbbrev(altName, cLang)
+        if cAbbrev is None or cAltAbbrev is None:
             skip = True
             continue
-        if not abbrevUtils.isSoftMatch(iAbbrev, cAbbrev):
+        if (not abbrevUtils.isSoftMatch(iAbbrev, cAbbrev)
+                and not abbrevUtils.isSoftMatch(iAbbrev, cAltAbbrev)):
             print(f'--Abbreviations don\'t match, ignoring [[{title}]].')
             otherAbbrevs = list(state.getAllAbbrevs(name).values())
             otherAbbrevs = [a for a in otherAbbrevs
                             if abbrevUtils.isSoftMatch(iAbbrev, a)]
             if otherAbbrevs:
                 reports.reportLanguageMismatch(
-                    title, infobox.get('title', ''),
+                    title, iTitle,
                     iAbbrev, cAbbrev, otherAbbrevs[0],
-                    infobox.get('language', ''), infobox.get('country', ''),
+                    abbrevUtils.sanitizeField(infobox.get('language', '')),
+                    abbrevUtils.sanitizeField(infobox.get('country', '')),
                     cLang, state.getMatchingPatterns(name), hasISO4Redirect)
+                patch = makeLanguageMismatchPatch(
+                    page, infoboxId, infobox.get('abbreviation'), cAbbrev,
+                    state.getMatchingPatterns(name)
+                )
+                if patch is not None:
+                    patchset['patches'].append(patch)
+                    print(f'ADDED PATCH #{len(patchset["patches"])}!!!')
+                    with open('patchset.json', 'wt') as f:
+                        json.dump(patchset, f)
             else:
                 reports.reportProperMismatch(
-                    title, infobox.get('title', ''),
+                    title, iTitle,
                     iAbbrev, cAbbrev, cLang,
                     state.getMatchingPatterns(name), hasISO4Redirect)
             continue
@@ -340,13 +379,13 @@ def getRequiredRedirects(page: pywikibot.Page) \
                   f'to avoid confusion we\'re ignoring [[{title}]].')
             skip = True
             reports.reportTrivialAbbrev(
-                title, infobox.get('title', ''),
+                title, iTitle,
                 iAbbrev, pageData['redirects'])
         else:
             result[iAbbrev] |= RCatSet.ISO4
             result[iAbbrevDotless] |= RCatSet.ISO4
     for infobox in pageData['infoboxes']:
-        nlm = infobox.get('nlm', '')
+        nlm: Optional[str] = abbrevUtils.sanitizeField(infobox.get('nlm', ''))
         if nlm and re.fullmatch(r'[\w\ \.,\(\)\[\]\:\'/\-]+', nlm):
             result[nlm] |= RCatSet.NLM
         if not nlm:
@@ -356,7 +395,8 @@ def getRequiredRedirects(page: pywikibot.Page) \
                 nlm = issnToAbbrev['nlm'].get(infobox['eissn'])
             if nlm and nlm == infobox.get('abbreviation').replace('.', ''):
                 result[nlm] |= RCatSet.NLM
-        msn = infobox.get('mathscinet', '')
+        msn: Optional[str] = \
+            abbrevUtils.sanitizeField(infobox.get('mathscinet', ''))
         if msn and re.fullmatch(r'[\w\ \.\(\)\:\'/\-]+', msn):
             result[msn] |= RCatSet.MSN
             result[msn.replace('.', '')] |= RCatSet.MSN
@@ -365,7 +405,7 @@ def getRequiredRedirects(page: pywikibot.Page) \
                 msn = issnToAbbrev['mathscinet'].get(infobox['issn'])
             if not msn and infobox.get('eissn'):
                 msn = issnToAbbrev['mathscinet'].get(infobox['eissn'])
-            if msn and msn == infobox.get('abbreviation'):
+            if msn and msn == iAbbrev:
                 result[msn] |= RCatSet.MSN
                 result[msn.replace('.', '')] |= RCatSet.MSN
     finalResult: Dict[str, RCatSet] = {}
@@ -471,6 +511,13 @@ def isReplaceableRedirect(rContent: str, title: str, rCats: RCatSet) -> bool:
     # Allow removing `(un)printworthy` rcats.
     rContent = re.sub(r'{{R(EDIRECT)? (un)?printworthy}}', '', rContent)
     rContent = re.sub(r'{{R(EDIRECT)? u?pw?}}', '', rContent)
+    # Allow rcats we think should be there
+    if rCats & RCatSet.ISO4:
+        rContent = re.sub(r'{{R from ISO ?4( abbreviation)?}}', '', rContent)
+    if rCats & RCatSet.NLM:
+        rContent = re.sub(r'{{R from (NLM|MEDLINE)( abbreviation)?}}', '', rContent)
+    if rCats & RCatSet.MSN:
+        rContent = re.sub(r'{{R from MathSciNet( abbreviation)?}}', '', rContent)
     # Allow removing at most one other abbreviation or spelling rcat.
     # E.g. don't change pages having an {{R from move}}.
     #    rContent = re.sub(r'{{R from[a-zA-Z4\s]*}}', '', rContent, 1)
@@ -489,6 +536,209 @@ def isReplaceableRedirect(rContent: str, title: str, rCats: RCatSet) -> bool:
     rContent = re.sub(r'{{REDIRECT category shell\s*[|](1=)?\s*}}', '',
                       rContent)
     return rContent == '#REDIRECT[[' + title + ']]'
+
+
+def datetimeFromPWB(t: pywikibot.Timestamp) -> datetime:
+    """Convert pywikibot timestamp to UTC datetime."""
+    # pywikibot subclasses and overrides t.isoformat() in a way
+    # that is incompatible with datetime.fromisoformat.
+    d = datetime.fromisoformat(datetime.isoformat(t))
+    if d.tzinfo is None:
+        d = d.replace(tzinfo=timezone.utc)
+    return d
+
+
+def makeLanguageMismatchPatch(
+        page: pywikibot.Page,
+        infoboxId: int,
+        infoboxAbbrev: str,
+        computedAbbrev: str,
+        matchingPatterns: str
+) -> Optional[Dict[str, Any]]:
+    """Make patchset for Stitchpitch: infobox param and redirects rcats."""
+    from unicodedata import normalize
+    import mwparserfromhell
+    startTimeStamp = datetime.now(timezone.utc).isoformat()
+    diff = datetimeFromPWB(Site().server_time()) - datetime.now(timezone.utc)
+    if diff > timedelta(minutes=2) or -diff > timedelta(minutes=2):
+        raise Exception('Local zone misconfigured or server timezone not UTC!')
+    latestRevision = page.latest_revision
+    mainEdit = {
+        'patchtype': 'edit',  # implies 'nocreate': True
+        'slug': f'{infoboxAbbrev} → {computedAbbrev}',
+        'details': matchingPatterns,
+        'title': page.title(),
+        'summary': 'Fix ISO-4 abbreviation to use all language rules.',
+        'minor': True,
+        'basetimestamp': datetimeFromPWB(latestRevision.timestamp).isoformat(),
+        'starttimestamp': startTimeStamp,
+        'oldtext': latestRevision.text,
+        'oldrevid': latestRevision.revid
+    }
+    if datetime.fromisoformat(mainEdit['basetimestamp']) > \
+       datetime.fromisoformat(startTimeStamp) - timedelta(hours=5):
+        print(f'Skipping patch for "{page.title()}":'
+              f' edited a short while ago ago.')
+        return None
+    code = mwparserfromhell.parse(normalize('NFC', latestRevision.text))
+    foundInfobox = None  # type: Optional[mwparserfromhell.Template]
+    foundId = -1
+    for t in code.filter_templates():
+        if t.name.matches('infobox journal') or \
+           t.name.matches('Infobox Journal'):
+            foundId += 1
+            if foundId == infoboxId:
+                foundInfobox = t
+                break
+    if not foundInfobox:
+        print(f'Skipping patch for "{page.title()}":'
+              f' infobox #{infoboxId} not found.')
+        return None
+    foundAbbrev = str(foundInfobox.get('abbreviation').value)
+    if foundAbbrev.strip() != infoboxAbbrev:
+        print(f'Skipping patch for "{page.title()}":'
+              f' infobox abbrev mismatch (comments?).')
+        return None
+    foundInfobox.get('abbreviation').value = \
+        foundAbbrev.replace(infoboxAbbrev, computedAbbrev, 1)
+    mainEdit['text'] = str(code)
+
+    patches = [mainEdit]
+    groupDetails = ''
+
+    regex = r' *{{\s*(r|R) from ISO ?4( abbreviation)?\s*}} *\n?'
+    abbrevRegex = r'{{\s*(r|R)(edirect)? (from )?(common )?ab[a-z]*\s*}}'
+    for rPage in getRedirectsToPage(page.title(), namespaces=0,
+                                    total=100, content=True):
+        rTitle = rPage.title()
+        rRevision = rPage.latest_revision
+        cAbbrev = abbrevUtils.stripTitle(computedAbbrev.lower())
+        if cAbbrev + ' ' in rTitle.lower() + ' ' or \
+           cAbbrev.replace('.', '') + ' ' in rTitle.lower() + ' ':
+            newtext = rRevision.text
+            if re.search(regex, newtext):
+                print(f'Skipping patch for existing page, already marked: {rTitle}')
+                groupDetails += 'ok: ' + rTitle + '\n'
+                continue
+            if not isReplaceableRedirect(rRevision.text, page.title(),
+                                         RCatSet.ISO4):
+                print(f'Skipping patch for unreplaceable page: {rTitle}')
+                groupDetails += 'unrepl: ' + rTitle + '\n'
+                continue
+            if re.search(abbrevRegex, newtext):
+                newtext = re.sub(abbrevRegex, '{{R from ISO 4}}', newtext, 1)
+            else:
+                newtext += '\n{{R from ISO 4}}'
+            markPatch = {
+                'patchtype': 'edit',
+                'slug': 'mark new?',
+                'title': rTitle,
+                'summary': 'Fix ISO-4 abbreviation to use all language rules.',
+                'minor': True,
+                'basetimestamp':
+                    datetimeFromPWB(rRevision.timestamp).isoformat(),
+                'starttimestamp': startTimeStamp,
+                'oldtext': rRevision.text,
+                'oldrevid': rRevision.revid,
+                'text': newtext
+            }
+            patches.append(markPatch)
+        elif re.search(regex, rRevision.text):
+            unmarkPatch = {
+                'patchtype': 'edit',
+                'slug': 'unmark old',
+                'title': rTitle,
+                'summary': 'Fix ISO-4 abbreviation to use all language rules.',
+                'minor': True,
+                'basetimestamp':
+                    datetimeFromPWB(rRevision.timestamp).isoformat(),
+                'starttimestamp': startTimeStamp,
+                'oldtext': rRevision.text,
+                'oldrevid': rRevision.revid,
+                'text': re.sub(regex, '{{R from abbreviation}}\n', rRevision.text)
+            }
+            if infoboxAbbrev.lower() in rTitle.lower() or \
+               infoboxAbbrev.replace('.', '').lower() in rTitle.lower():
+                patches.append(unmarkPatch)
+            else:
+                print(f'Skip patch unmark on unrecog ISO-4: {rTitle}')
+                groupDetails += 'unrecog ISO-4: ' + rTitle + '\n'
+        else:
+            groupDetails += '??: ' + rTitle + '\n'
+    shouldHave = [computedAbbrev]
+    if computedAbbrev.replace('.', '') != computedAbbrev:
+        shouldHave.append(computedAbbrev.replace('.', ''))
+
+    for abbrev in shouldHave:
+        rPage = pywikibot.Page(Site(), abbrev)
+        if not rPage.exists():
+            createPatch = {
+                'patchtype': 'create',
+                'slug': 'create',
+                'title': rPage.title(),
+                'summary': 'R from ISO-4 abbreviation of journal title.',
+                'minor': True,
+                'starttimestamp': startTimeStamp,
+                'text': '#REDIRECT[[' + page.title() + ']]\n\n'
+                           '{{R from ISO 4}}\n'
+            }
+            patches.append(createPatch)
+
+    return {
+        'patchtype': 'group',
+        'slug': f'{infoboxAbbrev} → {computedAbbrev}',
+        'details': groupDetails,
+        'patches': patches
+    }
+
+
+def doPatchlist(filename: str) -> None:
+    startTimeStamp = datetime.now(timezone.utc).isoformat()
+    # Patchset to propose for Stitchpitch
+    result: Dict[str, Any] = {
+        'patchtype': 'list',
+        'slug': 'ISO-4 redirect creation',
+        'patches': []
+    }
+    with open(filename) as f:
+        for line in f:
+            title = re.search(r'\[\[([^\[\]]+)\]\]', line).group(1)
+            page = pywikibot.Page(Site(), title)
+            target = page.getRedirectTarget().title()
+            name = re.sub(r'\s*(.{6})\s*[-:–(].*', r'\1', title)
+            rTitle = state.tryGetAbbrev(name, 'all')
+            if rTitle is None:
+                continue
+            patchgroup = {
+                'patchtype': 'group',
+                'slug': f'{title} – {rTitle}',
+                'details': f'<pre>{target}</pre>\n\n' + state.getMatchingPatterns(name),
+                'patches': []
+            }
+            print(patchgroup['slug'])
+            src = [rTitle]
+            rTitleDotless = rTitle.replace('.', '')
+            if rTitleDotless != rTitle:
+                src.append(rTitleDotless)
+            for srcTitle in src:
+                rPage = pywikibot.Page(Site(), srcTitle)
+                if rPage.exists():
+                    print(f"Already exists: [[{srcTitle}]].")
+                    continue
+                createPatch = {
+                    'patchtype': 'create',
+                    'slug': 'create',
+                    'title': rPage.title(),
+                    'summary': 'R from ISO-4 abbreviation of journal title (supervised).',
+                    'minor': True,
+                    'starttimestamp': startTimeStamp,
+                    'text': '#REDIRECT[[' + target + ']]\n\n'
+                            '{{R from ISO 4}}\n'
+                }
+                patchgroup['patches'].append(createPatch)
+            result['patches'].append(patchgroup)
+    with open('patchset.json', 'wt') as f:
+        json.dump(result, f)
 
 
 if __name__ == '__main__':

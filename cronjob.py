@@ -32,15 +32,16 @@ State = OrderedDict[str, Tuple[Optional[datetime], Optional[datetime]]]
 # Representation of State as a JSON object
 JSONState = OrderedDict[str, Tuple[Optional[str], Optional[str]]]
 
+PYTHON = ['/usr/bin/python3.9']
 
 jobs: OrderedDict[str, List[str]] = OrderedDict(
-    andBot=['andBot.py'],
-    variantBot=['variantBot.py'],
-    abbrevIsoBot=['python3', '-m', 'abbrevIsoBot', 'fixpages'],
+    andBot=PYTHON + ['andBot.py'],
+    variantBot=PYTHON + ['variantBot.py'],
+    abbrevIsoBot=PYTHON + ['-m', 'abbrevIsoBot', 'fixpages'],
     abbrevIso=['../abbrevIso/exampleScript.js',
                'abbrevIsoBot/abbrevBotState.json'],
-    abbrevIsoPost=['python3', '-m', 'abbrevIsoBot', 'report'],
-    fillBot=['python3', '-m', 'abbrevIsoBot', 'fill']
+    abbrevIsoPost=PYTHON + ['-m', 'abbrevIsoBot', 'report'],
+    fillBot=PYTHON + ['-m', 'abbrevIsoBot', 'fill']
 )
 
 
@@ -55,8 +56,9 @@ def main() -> None:
     for jobId, jobArgs in jobs.items():
         s, t = lastRunTimes.get(jobId, (None, None))
         if s and ((not t) or t < s):
-            print(f'WARNING: {jobId}: last end time < start time, job killed?')
-        if not t or shouldRunJob(t):
+            send_notification()
+            raise Exception(f'ERROR: {jobId}: last end time < start time, job killed?')
+        if not s or (t and shouldRunJob(max(s, t))):
             s = datetime.now(timezone.utc)
             lastRunTimes[jobId] = (s, t)
             saveState(lastRunTimes)
@@ -68,16 +70,34 @@ def main() -> None:
     print('No jobs to run.')
 
 
+def send_notification():
+    """Send a notification to my phone using Pushover.
+
+    See `https://pushover.net/api`.
+    """
+    import http.client, urllib
+    conn = http.client.HTTPSConnection('api.pushover.net:443')
+    with open('.cronConfig.json') as f:
+        request = json.load(f)
+    assert isinstance(request, dict)  # Should have 'token' and 'user' keys.
+    request['message'] = 'workspace/tokenzeroBot/cronjob.py ERROR'
+    conn.request('POST',
+                 '/1/messages.json',
+                 urllib.parse.urlencode(request),
+                 { 'Content-type': 'application/x-www-form-urlencoded' })
+    print(conn.getresponse())
+
+
 def shouldRunJob(t: datetime) -> bool:
     """Return whether between t and now there was a 'running moment'.
 
-    Running moments are every 19th and last day of the month, on 01:00 UTC.
+    Running moments are ~every week.
     """
     import calendar
     now = datetime.now(timezone.utc)
     for y in [now.year - 1, now.year]:
         for m in range(1, 13):
-            for d in [19, calendar.monthrange(y, m)[1]]:
+            for d in [7, 14, 21, calendar.monthrange(y, m)[1]]:
                 for h in [1]:
                     moment = datetime(y, m, d, h, tzinfo=timezone.utc)
                     if moment > now:
@@ -87,7 +107,7 @@ def shouldRunJob(t: datetime) -> bool:
     return False
 
 
-def runJob(jobId: str, jobArgs: List[str], timeout: int = 3 * 60 * 60) -> None:
+def runJob(jobId: str, jobArgs: List[str], timeout: int = 8 * 60 * 60) -> None:
     """Run job with same stdout/err, return when done.
 
     Throw if non-zero return code or killed by timeout (in seconds).
@@ -98,10 +118,13 @@ def runJob(jobId: str, jobArgs: List[str], timeout: int = 3 * 60 * 60) -> None:
     d = datetime.now(timezone.utc).date().isoformat()
     fp = open(f'logs/cron-{jobId}-{d}.txt', 'a')
     fp.write(f'[cronjob starting {datetime.now(timezone.utc).isoformat()}]\n')
-    if jobArgs[0] != 'python3':
+    fp.flush()
+    if jobArgs[0].startswith('.'):
         jobArgs[0] = os.getcwd() + '/' + jobArgs[0]
     subprocess.run(jobArgs, timeout=timeout, check=True, stdout=fp, stderr=fp)
+    fp.flush()
     fp.write(f'[cronjob finished {datetime.now(timezone.utc).isoformat()}]\n')
+    fp.flush()
 
 
 class ExclusiveInstanceLock:

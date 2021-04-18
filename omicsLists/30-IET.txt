@@ -1,0 +1,80 @@
+target = List of Institution of Engineering and Technology academic journals
+category = Institution of Engineering and Technology academic journals
+anchor = true
+---
+Biosurface and Biotribology
+CAAI Transactions on Intelligence Technology
+CIRED - Open Access Proceedings Journal
+Chinese Journal of Electronics
+Cognitive Computation and Systems
+Communications Engineer
+Computer-Aided Engineering Journal
+Computerised Manufacturing
+Computing & Control Engineering Journal
+Computing and Control Engineering
+Electronic Systems News
+Electronics & Communication Engineering Journal
+Electronics Education
+Electronics Systems and Software
+Engineering Biology
+Engineering Management (journal)
+Engineering Management Journal
+Engineering Science & Education Journal
+Healthcare Technology Letters
+High Voltage (journal)
+IEE Journal on Computers and Digital Techniques
+IEE Journal on Electric Power Applications
+IEE Journal on Electronic Circuits and Systems
+IEE Journal on Microwaves, Optics and Acoustics
+IEE Journal on Solid-State and Electron Devices
+IEE-IERE Proceedings India
+IET Biometrics
+IET Circuits, Devices & Systems
+IET Collaborative Intelligent Manufacturing
+IET Communications
+IET Computer Vision
+IET Computers & Digital Techniques
+IET Control Theory & Applications
+IET Cyber-Physical Systems: Theory & Applications
+IET Cyber-Systems and Robotics
+IET Electric Power Applications
+IET Electrical Systems in Transportation
+IET Energy Systems Integration
+IET Generation, Transmission & Distribution
+IET Image Processing
+IET Intelligent Transport Systems
+IET Microwaves, Antennas & Propagation
+IET Nanobiotechnology
+IET Nanodielectrics
+IET Networks
+IET Optoelectronics
+IET Power Electronics
+IET Radar, Sonar & Navigation
+IET Renewable Power Generation
+IET Science, Measurement & Technology
+IET Signal Processing
+IET Smart Cities
+IET Smart Grid
+IET Synthetic Biology
+IET Systems Biology
+IET Wireless Sensor Systems
+Information Professional (journal)
+Institution of Production Engineers Journal
+Intelligent Systems Engineering
+Journal of the British Institution of Radio Engineers
+Journal of the Institution of Electronic and Radio Engineers
+Journal of the Institution of Production Engineers
+Manufacturing Engineer (journal)
+Micro & Nano Letters
+Power Engineer (journal)
+Power Engineering Journal
+Proceedings of the British Institution of Radio Engineers
+Proceedings of the Indian Division of the British Institution of Radio Engineers
+Proceedings of the Indian Division of the Institution of Electronic and Radio Engineers
+Proceedings of the Institution of Electronic and Radio Engineers
+Production Engineer (journal)
+Radio and Electronic Engineer
+Students' Quarterly Journal
+Systems Biology (journal)
+Wiring Installations and Supplies
+

@@ -41,7 +41,7 @@ def main() -> None:
     initLimits(
         editsLimits={'create': 600, 'talk': 600, 'fix': 600, 'hatnote': 0},
         brfaNumber=6,
-        onlySimulateEdits=True,
+        onlySimulateEdits=False,
         botTrial=False
     )
 
@@ -67,11 +67,11 @@ def main() -> None:
                 print(f'Title line {i - configEnd}/{numLines - configEnd} \t '
                       f'[{filename}]')
                 if config.lang:
-                    doOmicsRedirects(line, config)
-                else:
                     parts = list(map(lambda x: x.strip(), line.split(';')))
                     assert len(parts) == 2
                     doOmicsRedirects(parts[1], config, parts[0])
+                else:
+                    doOmicsRedirects(line, config)
                 if config.publisher:
                     doOmicsHatnotes(line, config.publisher)
             sys.stdout.flush()
@@ -88,7 +88,8 @@ class Config:
         self.publisher: Optional[str] = None
         self.anchor: bool = False  # Whether redirects should contain anchor.
         # (Anchors are guess trivially, as the first character).
-        self.lang: bool = False    # Whether titles are given with language.
+        self.lang: bool = False    # Whether each title is given with language.
+        # (The format of each line is then like "ger;Journal of Foo").
 
         rTarget: Optional[str] = None
         rCat: Optional[str] = None
@@ -104,9 +105,9 @@ class Config:
             elif key == 'publisher':
                 self.publisher = value
             elif key == 'anchor':
-                self.anchor = (value.lower() not in ['false', 'no', '0'])
+                self.anchor = (value.lower() not in ['false', 'no', '0', ''])
             elif key == 'lang':
-                self.lang = (value.lower() not in ['false', 'no', '0'])
+                self.lang = (value.lower() not in ['false', 'no', '0', ''])
             else:
                 raise Exception(f'Unrecognized configuration key "{key}".')
         if not rTarget:
@@ -137,6 +138,7 @@ class Config:
         print(f'Redirect cat = [[Category:{self.rCat}]]')
         print(f'Redirect publisher = [[{self.publisher}]]')
         print(f'Anchor = {"true" if self.anchor else "false"}')
+        print(f'Lang = {"true" if self.lang else "false"}')
 
 
 def doOmicsRedirects(title: str,
@@ -191,22 +193,23 @@ def doOmicsRedirects(title: str,
         state.saveTitleToAbbrev(title, lang)
 
     try:
-        cLang = lang or 'eng'
+        cLang = lang or 'all'
         cAbbrev = state.getAbbrev(title, cLang)
-        cEngAbbrev = state.getAbbrev(title, 'eng')
+        # cEngAbbrev = state.getAbbrev(title, 'eng')
     except state.NotComputedYetError as err:
         print(err.message)
         return
     if cAbbrev != title:
         rTitles.add((cAbbrev, 'iso4'))
         rTitles.add((cAbbrev.replace('.', ''), 'iso4'))
-    if cAbbrev != cEngAbbrev and cEngAbbrev != title:
-        rTitles.add((cEngAbbrev, 'uniso4'))
-        rTitles.add((cEngAbbrev.replace('.', ''), 'uniso4'))
+    # Deprecated:
+    # if cAbbrev != cEngAbbrev and cEngAbbrev != title:
+    #     rTitles.add((cEngAbbrev, 'uniso4'))
+    #     rTitles.add((cEngAbbrev.replace('.', ''), 'uniso4'))
 
     # Skip if any of the redirect variants exists and is unfixable.
     for (rTitle, rType) in rTitles:
-        if addJournal and (rType != 'iso4' or rType != 'uniso4'):
+        if addJournal and (rType != 'iso4'):
             rTitle = rTitle + ' (journal)'
 
         r = createOrFixOmicsRedirect(rTitle, rType, config, tryOnly=True)
@@ -216,7 +219,7 @@ def doOmicsRedirects(title: str,
 
     # Create or replace the redirects.
     for (rTitle, rType) in rTitles:
-        if addJournal and (rType != 'iso4' or rType != 'uniso4'):
+        if addJournal and (rType != 'iso4'):
             rTitle = rTitle + ' (journal)'
         createOrFixOmicsRedirect(rTitle, rType, config, tryOnly=False)
 

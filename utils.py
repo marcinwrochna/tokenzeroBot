@@ -50,6 +50,16 @@ def initLimits(editsLimits: Dict[str, int],
         f'BRFA page "{brfa}" does not exist!'
 
 
+def printLimits() -> None:
+    print('-----------LIMITS------------')
+    print('editsLimits', _editsLimits)
+    print('brfaNumber', _brfaNumber)
+    print('onlySimulateEdits', _onlySimulateEdits)
+    print('botTrial', _botTrial)
+    print('listLimit', _listLimit)
+    print('-----------------------------')
+
+
 def isLimitReached(limitType: str = 'default') -> bool:
     """Return whether we reached the given limit of edits.
 

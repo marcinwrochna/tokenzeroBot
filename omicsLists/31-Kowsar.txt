@@ -1,0 +1,54 @@
+target = Kowsar Publishing#List of journals
+category = Kowsar Publishing academic journals
+anchor = false
+---
+Anesthesiology and Pain Medicine
+Annals of Anesthesiology and Critical Care
+Annals of Military and Health Sciences Research
+Archives of Clinical Infectious Diseases
+Archives of Critical Care Medicine
+Archives of Neuroscience
+Archives of Pediatric Infectious Diseases
+Archives of Razi Institute
+Asian Journal of Sports Medicine
+Dental Clinical and Experimental Journal
+Educational Research in Medical Sciences Journal
+Gene Cell Tissue
+Health Scope
+Hormozgan Medical Journal
+International Journal of Cancer Management
+International Journal of Endocrinology & Metabolism
+International Journal of Health and Life Sciences
+International Journal of High Risk Behaviors and Addiction
+International Journal of Infection
+International Journal of Sport Studies for Health
+Iranian Journal of Orthodontics
+Iranian Journal of Pediatrics
+Iranian Journal of Psychiatry and Behavioral Sciences
+Iranian Journal of Radiology
+Iranian Red Crescent Medical Journal
+Jentashapir Journal of Cellular and Molecular Biology
+Journal of Archives in Military Medicine
+Journal of Clinical Research in Paramedical Sciences
+Journal of Comprehensive Pediatrics
+Journal of Kermanshah University of Medical Science
+Journal of Minimally Invasive Surgical Sciences
+Journal of Skin and Stem Cell
+Jundishapur Journal of Chronic Disease Care
+Jundishapur Journal of Health Sciences
+Jundishapur Journal of Microbiology
+Jundishapur Journal of Natural Pharmaceutical Products
+Medical - Surgical Nursing Journal
+Middle East Journal of Rehabilitation and Health
+Modern Care Journal
+Multidisciplinary Cardiovascular Annals
+Nephro-Urology Monthly
+Nursing Midwifery Studies
+Reports of Radiotherapy and Oncology
+Scimetr
+Shiraz E Medical Journal
+Social Pharmacy
+Strides in Development of Medical Education
+Thrita
+Trauma Monthly
+Zahedan Journal of Research in Medical Sciences

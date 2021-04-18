@@ -242,7 +242,7 @@ class WikiTable:
 
     def __str__(self) -> str:
         """Return wikicode for the full table."""
-        result = "{| class='wikitable'\n"
+        result = "{| class='wikitable sortable'\n"
         result += "|-\n! " + (" !! ".join(self.header)) + "\n"
         for row in self.rows:
             result += "|-\n| " + (" || ".join(row)) + "\n"
@@ -285,9 +285,11 @@ def getOverallStats() -> str:
             else:
                 iabbrev = infobox['abbreviation']
                 try:
+                    altName = abbrevUtils.stripTitle(title)
                     cLang = abbrevUtils.getLanguage(infobox)
-                    cabbrev = state.getAbbrev(name, cLang)
+                    cabbrev = state.getAbbrev(name or altName, cLang)
                 except state.NotComputedYetError:
+                    print(f"Still no computed abbrev for {title!r} {name!r} {cLang!r}")
                     nIJsWithMissingAbbrev += 1
                     continue
                 cabbrev = normalize('NFC', cabbrev).strip()
@@ -555,10 +557,10 @@ def getBadDBAbbrevReport() -> str:
             dbAbbrev, issn, whichDb \
             in sorted(__report['badDbAbbrev'], key=lambda x: (x[6], x)):
         table.appendRow(f"[[{wikititle}]]",
-                        wikiEscape(infoboxTitle),
-                        wikiEscape(infoboxAbbrev),
-                        wikiEscape(paramAbbrev),
-                        wikiEscape(dbAbbrev),
+                        linkNoRedir(infoboxTitle),
+                        linkNoRedir(infoboxAbbrev),
+                        linkNoRedir(paramAbbrev),
+                        linkNoRedir(dbAbbrev),
                         issn,
                         whichDb)
     return (

@@ -46,6 +46,9 @@ def main() -> None:
         if not rPage.isRedirectPage():
             print('Skip: not a redirect')
             continue
+        if ':' in rTitle[:5]:
+            print('Skip: colon in title.')
+            continue
         targetArticle = rPage.getRedirectTarget().title()
         if 'Category:' in targetArticle:
             print('Skip: redirect to a category')

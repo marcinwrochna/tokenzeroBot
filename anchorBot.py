@@ -32,8 +32,9 @@ def main() -> None:
     listPage = pywikibot.Page(Site(), listTitle)
     if not listPage.exists():
         raise Exception(f'Page [[{listTitle}]] does not exist.')
-    for rTitle, anchor in parseList(listPage.text):
-        fixRedirectAnchor(rTitle, anchor, listTitle)
+    print(f'List: [[{listTitle}]]')
+    # for rTitle, anchor in parseList(listPage.text):
+    #     fixRedirectAnchor(rTitle, anchor, listTitle)
     exceptions = [
         'List of Hindawi academic journals',
         'Hindawi academic journal',
@@ -41,7 +42,8 @@ def main() -> None:
         'List of MDPI journals',
         'List of Dove Medical Press academic journals',
         'List of Dove Press academic journals',
-        'List of Medknow Publications academic journals']
+        'List of Medknow Publications academic journals',
+        'List of Nature Research journals']
     for rPage in getRedirectsToPage(listTitle, namespaces=0, content=True):
         rTitle = rPage.title()
         if rTitle not in exceptions:
@@ -52,10 +54,12 @@ def parseList(page: str) -> List[Tuple[str, str]]:
     """Parse given wikicode of a List page."""
     result: List[Tuple[str, str]] = []
     currentSection = ''
-    for part in page.split('=='):
+    for part in page.split('==='):  # Sometimes should be ==
         part = part.strip()
         if len(part) == 1:
             currentSection = part
+            continue
+        if not currentSection:
             continue
 
         for line in re.findall(r"^\*''(.*)''$", part, re.MULTILINE):
@@ -96,15 +100,20 @@ def fixRedirectAnchor(rTitle: str, anchor: str, target: str) -> bool:
         print(f'Not a redirect to this list: '
               f'[[{rPage.title()}]] -> [[{actualTarget[0]}]]', flush=True)
         return False
-    if len(actualTarget) > 1 and actualTarget[1] != anchor:
-        print(f'WARNING: Anchor mismatch: '
-              f'[[{rPage.title()}]] -> [[{actualTarget[0]}]].'
-              f'Is "{actualTarget[1]}" should be "{anchor}".')
+    if len(actualTarget) > 1:
+        if actualTarget[1] != anchor:
+            print(f'WARNING: Anchor mismatch: '
+                  f'[[{rPage.title()}]] -> [[{actualTarget[0]}]].'
+                  f'Is "{actualTarget[1]}" should be "{anchor}".')
+            return False
+        else:
+            return True
     predictedAnchor = getPredictedAnchor(rTitle)
     if predictedAnchor != anchor:
         print(f'WARNING: Anchor mismatch: '
               f'[[{rPage.title()}]] -> [[{actualTarget[0]}]].'
               f'Predicted "{predictedAnchor}" should be "{anchor}".')
+        return False
 
     rText = rPage.text
     rNewText = re.sub(r'''(
@@ -130,8 +139,11 @@ def fixRedirectAnchor(rTitle: str, anchor: str, target: str) -> bool:
 
 def getPredictedAnchor(title: str) -> str:
     """Return predicted anchor for given title, usually first letter."""
+    title = title.lower()
+    if title.startswith('npj '):
+        return 'npj series'
     title = re.sub(r'^(the|a|an|der|die|das|den|dem|le|la|les|el|il)\s+', '',
-                   title.lower())
+                   title)
     return title[0].upper()
 
 

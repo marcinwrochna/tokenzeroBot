@@ -198,7 +198,7 @@ export async function redirectToPreviewDiff(wikitext, summary) {
             ['wpSummary', summary],
             ['wpAutoSummary', 'd41d8cd98f00b204e9800998ecf8427e'], // this is md5('')
             ['wpDiff', 'Show changes'], // ['wpPreview', 'yes'],
-            ['wpEditToken', mw.user.tokens.get('editToken')],
+            ['wpEditToken', mw.user.tokens.get('csrfToken')],
             ['mode', 'preview'],
             ['wpUltimateParam', 1] // A weird mediawiki safety check.
         ])
