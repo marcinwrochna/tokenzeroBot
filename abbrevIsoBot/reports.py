@@ -4,12 +4,14 @@ Mismatch means the abbrv written in the infobox exists, but is not a soft match
 for the automatically computed one (equal up to some cuts, see isSoftMatch()).
 """
 import re
+from time import sleep
 from typing import Any, Dict, List  # pylint: disable=unused-import
 from unicodedata import normalize
 
 import pywikibot
 
 from abbrevIsoBot import state, abbrevUtils
+
 
 
 # Each list contains tuples: [page title, infobox title, infobox abbrev, ..?].
@@ -67,24 +69,28 @@ def doReport(site: pywikibot.Site, printOnly: bool = False) -> None:
         page = pywikibot.Page(site, u"User:TokenzeroBot/abbrev params")
         page.text = dbReport
         page.save(u'New report.', minor=False)
+        sleep(20)
     print(dbReport)
 
     if not printOnly:
         page = pywikibot.Page(site, u"User:TokenzeroBot/ISO 4 unusual")
         page.text = oReport
         page.save(u'New report.', minor=False)
+        sleep(20)
     print(oReport)
 
     if not printOnly:
         page = pywikibot.Page(site, u"User:TokenzeroBot/ISO 4")
         page.text = mReport
         page.save(u'New report.', minor=False)
+        sleep(20)
     print(mReport)
 
     if not printOnly:
         page = pywikibot.Page(site, u"User:TokenzeroBot/ISO 4 mismatches")
         page.text = mLongReport
         page.save(u'New report.', minor=False)
+        sleep(20)
     print(mLongReport)
 
 
@@ -266,6 +272,25 @@ def printReportOnInfoboxPerPageNumbers() -> None:
                 print("[[", title, "]]")
 
 
+
+# from pprint import pp
+
+# def y() -> str:
+#     for title, page in state.getPagesDict().items():
+#             # if title == "Off Our Backs":
+#             print("C" * 100)
+#             pp(title)
+#             pp(page)
+#             print("D" * 100)
+#             for infobox in page['infoboxes']:
+#                 t = re.sub(r'\s*\(.*(ournal|agazine|eriodical|eview)s?\)', '',
+#                            title)
+#                 name = infobox.get('title', t)
+#                 if 'abbreviation' not in infobox or infobox['abbreviation'] == '':
+#                     print("XXX EMPTY", title)
+#                     pp(page)
+
+
 def getOverallStats() -> str:
     """Return wikitext with number of infobox-journals, mismatches, etc."""
     nTotal = 0  # In total.
@@ -274,14 +299,17 @@ def getOverallStats() -> str:
     nIJsWithExactMatch = 0  # With exact match.
     nIJsWithCompatMatch = 0  # With match up to e.g. removing parens.
     nIJsWithMismatch = 0  # With mismatch.
+    from pprint import pp
     for title, page in state.getPagesDict().items():
         for infobox in page['infoboxes']:
             t = re.sub(r'\s*\(.*(ournal|agazine|eriodical|eview)s?\)', '',
                        title)
             name = infobox.get('title', t)
             nTotal += 1
-            if 'abbreviation' not in infobox or infobox['abbreviation'] == '':
+            if 'abbreviation' not in infobox or infobox['abbreviation'] == '':                
                 nIJsWithoutAbbrev += 1
+                print("AAA EMPTY", title)
+                pp(page)
             else:
                 iabbrev = infobox['abbreviation']
                 try:

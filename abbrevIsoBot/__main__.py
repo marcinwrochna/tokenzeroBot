@@ -107,11 +107,12 @@ def doScrape(fixPages: bool = False, writeReport: bool = False) -> None:
     # In case you'd want 'Category:Academic journals', you'd probably exclude
     # the subcategory 'Literary magazines' (in 'Humanities journals')
     # which includes all kinds of comic book magazines, for example.
-    for i, page in enumerate(articles):
-        print(f'--Scraping:\t{i}\t{page.title()}\t', end='', flush=True)
-        scrapePage(page)
-        if fixPages:
-            fixPageRedirects(page)
+    if True:
+        for i, page in enumerate(articles):
+            print(f'--Scraping:\t{i}\t{page.title()}\t', end='', flush=True)
+            scrapePage(page)
+            if fixPages:
+                fixPageRedirects(page)
     if writeReport:
         reports.doReport(Site(), printOnly=False)
 
@@ -393,7 +394,7 @@ def getRequiredRedirects(page: pywikibot.Page) \
                 nlm = issnToAbbrev['nlm'].get(infobox['issn'])
             if not nlm and infobox.get('eissn'):
                 nlm = issnToAbbrev['nlm'].get(infobox['eissn'])
-            if nlm and nlm == infobox.get('abbreviation').replace('.', ''):
+            if nlm and nlm == infobox.get('abbreviation', '').replace('.', ''):
                 result[nlm] |= RCatSet.NLM
         msn: Optional[str] = \
             abbrevUtils.sanitizeField(infobox.get('mathscinet', ''))

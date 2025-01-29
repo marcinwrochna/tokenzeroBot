@@ -37,6 +37,7 @@ def loadOrInitState(stateFileName: str) -> None:
     global __state  # pylint: disable=global-statement
     global _stateFileName  # pylint: disable=global-statement
     _stateFileName = stateFileName
+    print(f"BBB Loading from {stateFileName}")
     opened = False
     try:
         with open(stateFileName, 'rt') as f:
@@ -54,6 +55,7 @@ def loadOrInitState(stateFileName: str) -> None:
 
 def saveState(stateFileName: str) -> None:
     """Save `state` to `STATE_FILE_NAME`."""
+    print(f"BBB Saving to {stateFileName}")
     with open(stateFileName, 'wt') as f:
         json.dump(__state, f)
 

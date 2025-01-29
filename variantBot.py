@@ -51,14 +51,20 @@ def main() -> None:
             continue
         targetArticle = rPage.getRedirectTarget().title()
         if 'Category:' in targetArticle:
-            print('Skip: redirect to a category')
+            # goodVariants = getVariantRedirects(rTitle, True)
+            # if len(goodVariants) == 4:
+            #     for variant in goodVariants:
+            #         if variant != rTitle and variant != rTitle.replace('.', ''):
+            #             print(f'Would call {variant} {targetArticle}')
+            #             makeVariantRedirect(variant, targetArticle)
+            print('Skip: redirect to a category.', len(variants) - 2)
             continue
         for variant in variants:
             if variant != rTitle and variant != rTitle.replace('.', ''):
                 makeVariantRedirect(variant, targetArticle)
 
 
-def getVariantRedirects(rTitle: str) -> List[str]:
+def getVariantRedirects(rTitle: str, onlyGood: bool = False) -> List[str]:
     """Get list of variant abbreviations similar to rTitle.
 
     Similar means obtained by replacing an ISO-4 abbreviation with a
@@ -67,22 +73,33 @@ def getVariantRedirects(rTitle: str) -> List[str]:
     """
     variantTitles = [rTitle]
     replacements = [('Adm.', 'Admin.'),
-                    ('Animal', 'Anim.'),
                     ('Am.', 'Amer.'),
-                    ('Atmospheric', 'Atmos.'),
                     ('Br.', 'Brit.'),
                     ('Calif.', 'Cal.'),
                     ('Commun.', 'Comm.'),
-                    ('Contributions', 'Contrib.'),
                     ('Entomol.', 'Ent.'),
                     ('Investig.', 'Invest.'),
                     ('Lond.', 'London'),
                     ('Philos.', 'Phil.'),
-                    ('Political', 'Polit.'),
-                    ('Radiat.', 'Rad.'),
-                    ('Royal', 'Roy.'),
-                    ('Royal', 'R.'),
-                    ('Special', 'Spec.')]
+                    ('Political ', 'Polit. '),
+                    ('Radiat.', 'Rad.')]
+    # This is to fix bugs because we used to think "Animal" is valid ISO-4 and "Anim." is not when it's the opposite (all LTWA rules apply regardless of language).
+    goodReplacements = [('Animal ', 'Anim. '),
+                        ('Atmospheric ', 'Atmos. '),
+                        ('Contributions ', 'Contrib. '),
+                        ('Royal ', 'Roy. '),
+                        ('Royal ', 'R. '),
+                        ('Special ', 'Spec. ')]
+    replacements += goodReplacements
+    if onlyGood:
+        replacements = goodReplacements
+    badReplacements = [('Animal', 'Anim.'),
+                       ('Atmospheric', 'Atmos.'),
+                       ('Contributions', 'Contrib.'),
+                       ('Royal', 'Roy.'),
+                       ('Royal', 'R.'),
+                       ('Special', 'Spec.')]
+
     for replIso, replVariant in replacements:
         newVariantTitles = variantTitles
         for vTitle in variantTitles:
@@ -90,7 +107,33 @@ def getVariantRedirects(rTitle: str) -> List[str]:
                 newVariantTitles.append(vTitle.replace(replIso, replVariant))
         variantTitles = newVariantTitles
     dotless = [v.replace('.', '') for v in variantTitles]
+    badVariantTitles = variantTitles[:]
     variantTitles.extend(dotless)
+
+    for replIso, replVariant in badReplacements:
+        newVariantTitles = badVariantTitles
+        for vTitle in badVariantTitles:
+            if replIso in vTitle:
+                newVariantTitles.append(vTitle.replace(replIso, replVariant))
+        badVariantTitles = newVariantTitles
+    dotless = [v.replace('.', '') for v in badVariantTitles]
+    badVariantTitles.extend(dotless)
+
+    for replBad, replIso in badReplacements:
+        if replBad in rTitle:
+            s = []
+            t = []
+            for v in badVariantTitles:
+                rPage = pywikibot.Page(Site(), v)
+                if rPage.exists() and 'ISO' in rPage.text:
+                    s.append(v)
+                else:
+                    t.append(v)
+            s = ', '.join(['{{noredir|' + v + '}}' for v in s])
+            t = ', '.join(['{{noredir|' + v + '}}' for v in t])
+            r = '{{noredir|' + rTitle + '}}'
+            print(f'XZX: |- | {replBad} || {replIso} || {r} || {s} || {t}')
+   
     return variantTitles
 
 

@@ -6,6 +6,7 @@ import unicodedata
 import mwparserfromhell
 import pywikibot
 import pywikibot.data.api
+import pywikibot.exceptions
 from pywikibot import Site
 
 
@@ -106,7 +107,11 @@ def tryPurging(page: pywikibot.Page) -> bool:
     """Purge page cache at Wikipedia, unless _onlySimulateEdits."""
     if _onlySimulateEdits:
         return False
-    return page.purge()
+    try:
+        return page.purge()
+    except pywikibot.exceptions.UserRightsError as e:
+        print(e)
+        return False
 
 
 def getCategoryAsSet(name: str, recurse: bool = True, namespaces: int = 0) \

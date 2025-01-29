@@ -15,15 +15,7 @@ import collections
 import json
 import fcntl
 
-# Workaround some pecularities of mypy:
-# the python interpreter doesn't understand collections.OrderedDict[str,str]
-# (claiming 'OrderedDict is unsubscriptable'),
-# while mypy doesn't understand 'typing.OrderedDict'
-# (claiming 'Module has no attribute OrderedDict', even though it's there).
-if typing.TYPE_CHECKING:
-    OrderedDict = collections.OrderedDict
-else:
-    OrderedDict = typing.OrderedDict
+OrderedDict = dict
 
 LOCK_FILE_NAME = ".cronjob.lock"
 STATE_FILE_NAME = ".cronState.json"
@@ -32,7 +24,8 @@ State = OrderedDict[str, Tuple[Optional[datetime], Optional[datetime]]]
 # Representation of State as a JSON object
 JSONState = OrderedDict[str, Tuple[Optional[str], Optional[str]]]
 
-PYTHON = ['/usr/bin/python3.9']
+# PYTHON = ['/usr/bin/python3.12']
+PYTHON = ['/home/token0/workspace/conda/envs/wikipedia/bin/python']
 
 jobs: OrderedDict[str, List[str]] = OrderedDict(
     andBot=PYTHON + ['andBot.py'],
@@ -56,13 +49,15 @@ def main() -> None:
     for jobId, jobArgs in jobs.items():
         s, t = lastRunTimes.get(jobId, (None, None))
         if s and ((not t) or t < s):
-            send_notification()
+            send_notification(f'bad times {jobId} s={s} t={t} {jobArgs}')
             raise Exception(f'ERROR: {jobId}: last end time < start time, job killed?')
         if not s or (t and shouldRunJob(max(s, t))):
             s = datetime.now(timezone.utc)
             lastRunTimes[jobId] = (s, t)
             saveState(lastRunTimes)
+
             runJob(jobId, jobArgs)
+
             t = datetime.now(timezone.utc)
             lastRunTimes[jobId] = (s, t)
             saveState(lastRunTimes)
@@ -70,7 +65,7 @@ def main() -> None:
     print('No jobs to run.')
 
 
-def send_notification():
+def send_notification(message="ERROR"):
     """Send a notification to my phone using Pushover.
 
     See `https://pushover.net/api`.
@@ -80,7 +75,7 @@ def send_notification():
     with open('.cronConfig.json') as f:
         request = json.load(f)
     assert isinstance(request, dict)  # Should have 'token' and 'user' keys.
-    request['message'] = 'workspace/tokenzeroBot/cronjob.py ERROR'
+    request['message'] = 'workspace/wikipedia/tokenzeroBot/cronjob.py ' + message
     conn.request('POST',
                  '/1/messages.json',
                  urllib.parse.urlencode(request),
@@ -121,7 +116,8 @@ def runJob(jobId: str, jobArgs: List[str], timeout: int = 8 * 60 * 60) -> None:
     fp.flush()
     if jobArgs[0].startswith('.'):
         jobArgs[0] = os.getcwd() + '/' + jobArgs[0]
-    subprocess.run(jobArgs, timeout=timeout, check=True, stdout=fp, stderr=fp)
+    env = os.environ  # | {"PYTHONPATH": "/home/token0/workspace/wikipedia/pywikibot/core/:" + os.environ.get("PYTHONPATH", "")}
+    subprocess.run(jobArgs, timeout=timeout, check=True, stdout=fp, stderr=fp, env=env)
     fp.flush()
     fp.write(f'[cronjob finished {datetime.now(timezone.utc).isoformat()}]\n')
     fp.flush()

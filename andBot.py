@@ -6,7 +6,7 @@ from itertools import chain
 from typing import Optional, Set
 import re
 
-import pycld2  # Compact Language Detection
+# import pycld2  # Compact Language Detection
 import pywikibot
 import pywikibot.data.api
 from pywikibot import Site
@@ -73,6 +73,9 @@ def makeAmpersandRedirects(
     if len(pageTitle) > 95:
         print('Skipping (length): ', pageTitle)
         return False
+    if '=' in pageTitle:
+        print('Skipping (bad characters): ', pageTitle)
+        return False
     if not targetPageTitle:
         targetPageTitle = pageTitle
     rTitle = ''
@@ -87,12 +90,14 @@ def makeAmpersandRedirects(
             print('Skipping (lang category): ', pageTitle)
             return False
         if not EnglishWordList.check(pageTitle):
-            isReliable, _, details = \
-                pycld2.detect(pageTitle, isPlainText=True)
-            if not isReliable or details[0][0] != 'ENGLISH':
-                print('Skipping (lang detect): ', pageTitle)
-                print(isReliable, str(details))
-                return False
+            print('Skipping (lang detect not installed): ', pageTitle)
+            return False
+            # isReliable, _, details = \
+            #     pycld2.detect(pageTitle, isPlainText=True)
+            # if not isReliable or details[0][0] != 'ENGLISH':
+            #     print('Skipping (lang detect): ', pageTitle)
+            #     print(isReliable, str(details))
+            #     return False
     if not rTitle:
         return False
     # Try creating a redirect from rTitle to pageTitle.
